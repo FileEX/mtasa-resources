@@ -1,6 +1,5 @@
 function addResourceMap ( resource, filename, dimension )
 	if not resource then return false end
-	dimension = dimension or 0
 	local currentFiles = getResourceFiles ( resource, "map" )
 	for k,path in ipairs(currentFiles) do
 		if path == filename then
@@ -54,6 +53,15 @@ function clearResourceMeta ( resource, quick ) --removes settings and info nodes
 			break
 		end
 	end
+	--Destroy leftover OOP nodes
+	while true do
+		local oopNode = xmlFindChild(metaNode, 'oop', 0)
+		if oopNode then
+			xmlDestroyNode(oopNode)
+		else
+			break
+		end
+	end
 	--Destroy any other nodes
 	local nodes = xmlNodeGetChildren ( metaNode )
 	for key, node in ipairs(nodes) do
@@ -81,7 +89,7 @@ function getResourceFiles ( resource, fileType )
 		end
 	end
 	if (not resourceExists) then return false, "no resource" end
-	local resource = getResourceName(resource)
+	resource = getResourceName(resource)
 	if (not resource) then return false, "no resource" end
 	local meta = xmlLoadFile ( ':' .. resource .. '/' .. "meta.xml" )
 	if not meta then return false, "no meta" end
@@ -132,7 +140,7 @@ end
 
 function flattenTree ( baseElement, newParent, newEditorParent, resourceTable )
 	local tick = getTickCount()
-	local resourceTable = resourceTable or {}
+	resourceTable = resourceTable or {}
 
 	for i, element in ipairs(getElementChildren(baseElement)) do
 		flattenTreeRuns = ( flattenTreeRuns or 0 ) + 1

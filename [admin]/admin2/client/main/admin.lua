@@ -14,7 +14,11 @@ aAdminMain = {
     Tab = nil,
     Widgets = {},
     Refresh = 0,
-    Hidden = false
+    Hidden = false,
+    BlockedTabsBySensitiveData = {
+        ['bans'] = true,
+        ['adminchat'] = true,
+    }
 }
 
 addEvent(EVENT_SYNC, true)
@@ -37,7 +41,7 @@ addEventHandler(
 function aAdminMain.Open()
     if (aAdminMain.Form == nil) then
         local x, y = guiGetScreenSize()
-        aAdminMain.Form = guiCreateWindow(x / 2 - 310, y / 2 - 260, 620, 520, "Admin Menu - v" .. _version, false)
+        aAdminMain.Form = guiCreateWindow(x / 2 - 375, y / 2 - 300, 750, 600, "Admin Menu - v" .. _version, false)
         guiSetText(aAdminMain.Form, "Admin Menu - v" .. _version)
         guiCreateLabel(0.75, 0.05, 0.45, 0.04, "Admin Panel by lil_Toady", true, aAdminMain.Form)
         aAdminMain.Panel = guiCreateTabPanel(0.01, 0.05, 0.98, 0.95, true, aAdminMain.Form)
@@ -50,13 +54,21 @@ function aAdminMain.Open()
         aAdminMain.AddTab("Bans", aBansTab, "bans")
         aAdminMain.AddTab("Admin Chat", aChatTab, "adminchat")
         aAdminMain.AddTab("Rights", aAclTab, "acl")
-        aAdminMain.AddTab("Network", aNetworkTab)
+        -- aAdminMain.AddTab("Network", aNetworkTab)
         aAdminMain.AddTab("Options", aOptionsTab)
 
         addEventHandler("onClientGUITabSwitched", aAdminMain.Panel, aAdminMain.Switch)
         addEventHandler("onAdminInitialize", aAdminMain.Form, aAdminMain.Initialize)
 
         triggerEvent("onAdminInitialize", aAdminMain.Form)
+
+        local state = aGetSetting('hideSensitiveData') or false
+
+        for k, v in ipairs(aAdminMain.Tabs) do
+            if aAdminMain.BlockedTabsBySensitiveData[v.Acl] then
+                guiSetEnabled(v.Tab, not state)
+            end
+        end
     end
     guiSetAlpha(aAdminMain.Form, 0)
     guiBlendElement(aAdminMain.Form, 0.8)
@@ -108,7 +120,7 @@ end
 function aAdminMain.AddTab(name, class, acl)
     assert(class)
     local tab = guiCreateTab(name, aAdminMain.Panel, acl)
-    table.insert(aAdminMain.Tabs, {Tab = tab, Class = class, Loaded = false})
+    table.insert(aAdminMain.Tabs, {Tab = tab, Class = class, Loaded = false, Acl = acl})
 end
 
 function aAdminMain.GetTab(tab)

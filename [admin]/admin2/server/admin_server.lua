@@ -16,15 +16,73 @@ aStats = {}
 aReports = {}
 aWeathers = {}
 
+function aHandleIP2CUpdate()
+    local playersToUpdate = false
+    local playersTable = getElementsByType("player") -- cache result, save function call
+
+    for playerID = 1, #playersTable do
+        local playerElement = playersTable[playerID]
+
+        if not playersToUpdate then
+            playersToUpdate = {} -- create table only when there are at least one player
+        end
+
+        updatePlayerCountry(playerElement)
+        playersToUpdate[#playersToUpdate + 1] = playerElement
+    end
+
+    if not playersToUpdate then
+        return -- if there are no players, stop further code execution
+    end
+
+    for playerID = 1, #playersTable do
+        local playerElement = playersTable[playerID]
+        local hasAdminPermission = hasObjectPermissionTo(playerElement, "general.adminpanel")
+
+        if hasAdminPermission then
+            
+            for playerToUpdateID = 1, #playersToUpdate do
+                local playerToUpdate = playersToUpdate[playerToUpdateID]
+
+                triggerClientEvent(playerElement, "aClientPlayerJoin", playerToUpdate,
+                    false, false, false, false,
+                    aPlayers[playerToUpdate].country,
+                    aPlayers[playerToUpdate].countryname
+                )
+            end
+        end
+    end
+end
+
+function aHandleIp2cSetting()
+	local enabled = get("*useip2c")
+	if enabled and enabled == "true" then
+		local ip2c = getResourceFromName("ip2c")
+		if ip2c and getResourceState(ip2c) == "loaded" then
+            -- Persistent
+			startResource(ip2c, true)
+		end
+	elseif (not enabled) or (enabled == "false") then
+		local ip2c = getResourceFromName("ip2c")
+		if ip2c and getResourceState(ip2c) == "running" then
+			stopResource(ip2c)
+		end
+	end
+end
+
 addEventHandler(
     "onResourceStart",
     root,
     function(resource)
         if (resource ~= getThisResource()) then
+            local resourceName = getResourceName(resource)
             for id, player in ipairs(getElementsByType("player")) do
                 if (hasObjectPermissionTo(player, "general.tab_resources")) then
-                    triggerClientEvent(player, "aClientResourceStart", root, getResourceName(resource))
+                    triggerClientEvent(player, "aClientResourceStart", root, resourceName)
                 end
+            end
+            if resourceName == "ip2c" then
+                aHandleIP2CUpdate()
             end
             return
         end
@@ -32,10 +90,10 @@ addEventHandler(
         aSetupACL()
         aSetupCommands()
         aSetupStorage()
-
         for id, player in ipairs(getElementsByType("player")) do
             aPlayerInitialize(player)
         end
+        aHandleIp2cSetting()
     end
 )
 
@@ -44,10 +102,14 @@ addEventHandler(
     root,
     function(resource)
         if (resource ~= getThisResource()) then
+            local resourceName = getResourceName(resource)
             for id, player in ipairs(getElementsByType("player")) do
                 if (hasObjectPermissionTo(player, "general.tab_resources")) then
-                    triggerClientEvent(player, "aClientResourceStop", root, getResourceName(resource))
+                    triggerClientEvent(player, "aClientResourceStop", root, resourceName)
                 end
+            end
+            if resourceName == "ip2c" then
+                aHandleIP2CUpdate()
             end
         else
             aReleaseStorage()
@@ -70,6 +132,7 @@ addEventHandler(
                     getPlayerIP(source),
                     getPlayerUserName(source),
                     getPlayerSerial(source),
+                    false,
                     aPlayers[source]["country"],
                     aPlayers[source]["countryname"]
                 )
@@ -87,37 +150,50 @@ addEventHandler(
     end
 )
 
+function updatePlayerCountry(player)
+    local isIP2CResourceRunning = getResourceFromName( "ip2c" )
+	isIP2CResourceRunning = isIP2CResourceRunning and getResourceState( isIP2CResourceRunning ) == "running"
+    aPlayers[player].country = isIP2CResourceRunning and exports.ip2c:getPlayerCountry(player) or false
+    if aPlayers[player].country then
+        aPlayers[player].countryname = isIP2CResourceRunning and exports.ip2c:getCountryName(aPlayers[player].country) or false
+    end
+end
+
 function aPlayerInitialize(player)
     aPlayers[player] = {}
-    aPlayers[player].country = getPlayerCountry(player)
-    aPlayers[player].countryname = getPlayerCountryName(player)
     aPlayers[player].money = getPlayerMoney(player)
     aPlayers[player].muted = isPlayerMuted(player)
     aPlayers[player].frozen = isElementFrozen(player)
+    updatePlayerCountry(player)
 end
 
 function aAction(type, action, admin, player, data, more)
     if (aLogMessages[type]) then
-        function aStripString(string)
+        function aStripString(string, hex)
+            if not hex then
+                hex = ""
+            end
             string = tostring(string)
-            string = string.gsub(string, "$admin", getPlayerName(admin))
+            string = string.gsub(string, "$admin", isAnonAdmin(admin) and "Admin" or (getPlayerName(admin) .. hex))
             string = string.gsub(string, "$data2", more or "")
             if (player) then
-                string = string.gsub(string, "$player", getPlayerName(player))
+                string = string.gsub(string, "$player", getPlayerName(player) .. hex)
             end
-            return tostring(string.gsub(string, "$data", data or ""))
+            return string.gsub(string, "$data", (data and data .. hex or ""))
         end
         local node = aLogMessages[type][action]
         if (node) then
             local r, g, b = node["r"], node["g"], node["b"]
+            local hex = RGBToHex(r, g, b)
+
             if (node["all"]) then
-                outputChatBox(aStripString(node["all"]), root, r, g, b)
+                outputChatBox(aStripString(node["all"], hex), root, r, g, b, true)
             end
             if (node["admin"]) and (admin ~= player) then
-                outputChatBox(aStripString(node["admin"]), admin, r, g, b)
+                outputChatBox(aStripString(node["admin"], hex), admin, r, g, b, true)
             end
             if (node["player"]) then
-                outputChatBox(aStripString(node["player"]), player, r, g, b)
+                outputChatBox(aStripString(node["player"], hex), player, r, g, b, true)
             end
             if (node["log"]) then
                 outputServerLog(aStripString(node["log"]))
@@ -154,11 +230,10 @@ addEventHandler(
     root,
     function(player, action, ...)
         if (hasObjectPermissionTo(source, "command." .. action)) then
-            local mdata1 = ""
-            local mdata2 = ""
+            local mdata1, mdata2
             local func = aFunctions.player[action]
             if (func) then
-                local result = nil
+                local result
                 result, mdata1, mdata2 = func(player, ...)
                 if (result ~= false) then
                     if (type(result) == "string") then
@@ -183,11 +258,10 @@ addEventHandler(
             return
         end
         if (hasObjectPermissionTo(source, "command." .. action)) then
-            local mdata1 = ""
-            local mdata2 = ""
+            local mdata1, mdata2
             local func = aFunctions.vehicle[action]
             if (func) then
-                local result = nil
+                local result
                 result, mdata1, mdata2 = func(player, vehicle, ...)
                 if (result ~= false) then
                     if (type(result) == "string") then
@@ -285,25 +359,39 @@ addEventHandler(
             aReports[id].category = tostring(data.category)
             aReports[id].subject = tostring(data.subject)
             aReports[id].text = tostring(data.message)
-            aReports[id].time = time.monthday .. "/" .. time.month .. " " .. time.hour .. ":" .. time.minute
+            aReports[id].time = string.format("%02d/%02d %02d:%02d", time.monthday, time.month+1, time.hour, time.minute)
             aReports[id].read = false
         elseif (action == "get") then
             triggerClientEvent(source, "aMessage", source, "get", aReports)
+            return
         elseif (action == "read") then
             if (aReports[data]) then
                 aReports[data].read = true
             end
-        elseif (action == "delete") then
-            if (aReports[data]) then
-                table.remove(aReports, data)
-            end
             triggerClientEvent(source, "aMessage", source, "get", aReports)
-        else
-            action = nil
+        elseif (action == "delete") then
+            local id = data[1]
+            if (not aReports[id]) then
+                outputChatBox("Error - Message not found.", source, 255, 0, 0)
+                triggerClientEvent(source, "aMessage", source, "get", aReports)
+                return
+            end
+
+            local message = data[2]
+            for key, value in pairs(aReports[id]) do
+                if (message[key] ~= value) then
+                    outputChatBox("Error - Message mismatch, please try again.", source, 255, 0, 0)
+                    triggerClientEvent(source, "aMessage", source, "get", aReports)
+                    return
+                end
+            end
+
+            table.remove(aReports, id)
+            triggerClientEvent(source, "aMessage", source, "get", aReports)
         end
         for id, p in ipairs(getElementsByType("player")) do
             if (hasObjectPermissionTo(p, "general.adminpanel")) then
-                triggerEvent("aSync", p, "messages")
+                triggerEvent(EVENT_SYNC, p, SYNC_MESSAGES)
             end
         end
     end
@@ -395,4 +483,12 @@ addEventHandler(
             end
         end
     end
+)
+
+addCommandHandler(get("adminChatCommandName"),
+	function(thePlayer, cmd, ...)
+		if (hasObjectPermissionTo(thePlayer, "general.tab_adminchat", false) and #arg > 0) then
+			triggerEvent("aAdminChat", thePlayer, table.concat(arg, " "))
+		end
+	end
 )

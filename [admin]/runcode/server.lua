@@ -1,5 +1,3 @@
-local rootElement = getRootElement()
-
 function runString (commandstring, outputTo, source)
 	me = source
 	local sourceName = source and getPlayerName(source) or "Console"
@@ -41,18 +39,18 @@ function runString (commandstring, outputTo, source)
 	end
 
 	if #results > 1 then
-		outputChatBoxR("Command results: " ..resultsString)
+		outputChatBoxR("Command results: " ..resultsString, outputTo)
 		return
 	end
 
-	outputChatBoxR("Command executed!")
+	outputChatBoxR("Command executed!", outputTo)
 end
 
 -- run command
 addCommandHandler("run",
 	function (player, command, ...)
 		local commandstring = table.concat({...}, " ")
-		return runString(commandstring, rootElement, player)
+		return runString(commandstring, root, player)
 	end
 )
 
@@ -69,7 +67,8 @@ addCommandHandler("crun",
 	function (player, command, ...)
 		local commandstring = table.concat({...}, " ")
 		if player then
-			return triggerClientEvent(player, "doCrun", rootElement, commandstring)
+			outputChatBoxR(getPlayerName(player) .. " executed client-side command: " .. commandstring, false)
+			return triggerClientEvent(player, "doCrun", root, commandstring)
 		else
 			return runString(commandstring, false, false)
 		end
@@ -79,6 +78,16 @@ addCommandHandler("crun",
 -- http interface run export
 function httpRun(commandstring)
 	if not user then outputDebugString ( "httpRun can only be called via http", 2 ) return end
+
+	-- check acl permission
+	local accName = getAccountName(user)
+	local objectName = "user." .. accName
+
+	if(not hasObjectPermissionTo(objectName, "command.srun", false)) then
+		outputServerLog(getAccountName(user) .. " from " .. hostname .. " attempted to execute Lua code with missing acl permission (command.srun)")
+		return "Error: Permission denied"
+	end
+
 	local notReturned
 	--First we test with return
 	local commandFunction,errorMsg = loadstring("return "..commandstring)
@@ -97,6 +106,9 @@ function httpRun(commandstring)
 		--It failed.
 		return "Error: "..results[2]
 	end
+
+	outputChatBoxR("[HTTP] " .. accName .. " from " .. hostname .. " executed command: " .. commandstring, false)
+
 	if not notReturned then
 		local resultsString = ""
 		local first = true

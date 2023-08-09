@@ -15,9 +15,9 @@ function aInputBox ( title, message, default, action, vOne, vTwo, defaultNick, d
 	if ( aInputForm == nil ) then
 		local x, y = guiGetScreenSize()
 		aInputForm		= guiCreateWindow ( x / 2 - 150, y / 2 - 64, 300, 170, "", false )
-				  	   guiWindowSetSizable ( aInputForm, false )
+						guiWindowSetSizable ( aInputForm, false )
 		aInputLabel		= guiCreateLabel ( 20, 24, 270, 15, "", false, aInputForm )
-					   guiLabelSetHorizontalAlign ( aInputLabel, "center" )
+						guiLabelSetHorizontalAlign ( aInputLabel, "center" )
 		aInputValue		= guiCreateEdit ( 35, 47, 230, 24, "", false, aInputForm )
 		aInputOk		= guiCreateButton ( 90, 80, 55, 17, "Ok", false, aInputForm )
 		aInputCancel		= guiCreateButton ( 150, 80, 55, 17, "Cancel", false, aInputForm )
@@ -25,7 +25,6 @@ function aInputBox ( title, message, default, action, vOne, vTwo, defaultNick, d
 		aInputAction = nil
 
 		addEventHandler ( "onClientGUIClick", aInputForm, aInputBoxClick )
-		addEventHandler ( "onClientGUIAccepted", aInputValue, aInputBoxAccepted )
 		--Register With Admin Form
 		aRegister ( "InputBox", aInputForm, aInputBox, aInputBoxClose )
 	end
@@ -112,7 +111,6 @@ function aInputBoxClose ( destroy )
 	if ( ( destroy ) or ( guiCheckBoxGetSelected ( aPerformanceInput ) ) ) then
 		if ( aInputForm ) then
 			removeEventHandler ( "onClientGUIClick", aInputForm, aInputBoxClick )
-			removeEventHandler ( "onClientGUIAccepted", aInputValue, aInputBoxAccepted )
 			aInputAction = nil
 			destroyElement ( aInputForm )
 			aInputForm = nil
@@ -125,10 +123,6 @@ end
 -- Escape character '%' will be lost when using gsub, so turn % into %%
 function keepEscapeCharacter ( text )
 	return string.gsub( text, "%%", "%%%%" )
-end
-
-function aInputBoxAccepted ()
-	--loadstring ( string.gsub ( aInputAction, "$value", "\""..keepEscapeCharacter( guiGetText ( aInputValue ) ).."\"" ) )()
 end
 
 function aInputBoxClick ( button )
@@ -211,7 +205,6 @@ function aInputBoxClick ( button )
 end
 
 
-
 --
 -- Ban input box
 --
@@ -286,7 +279,6 @@ function aBanInputBox ( player )
 		aBanInputOk			= guiCreateButton ( 90, y, 55, 17, "Ok", false, aBanInputForm )
 		aBanInputCancel		= guiCreateButton ( 150, y, 55, 17, "Cancel", false, aBanInputForm )
 		y = y + 30
-
 
 
 		guiSetSize ( aBanInputForm, guiGetSize ( aBanInputForm, false ), y, false )
@@ -390,16 +382,12 @@ function aBanInputBoxFinish ()
 	triggerServerEvent ( "aPlayer", localPlayer, aBanInputPlayer, "ban", reason, seconds, bUseSerial )
 
 
-
 	-- Clear input
 	guiSetText ( aBanInputValue, "" )
 	for i,dur in ipairs(aBanDurations) do
 		guiRadioButtonSetSelected( aBanInputRadio2s[i], false )
 	end
 end
-
-
-
 
 
 --
@@ -465,7 +453,7 @@ function aMuteInputBox ( player )
 		aMuteInputPlayer = nil
 
 		addEventHandler ( "onClientGUIClick", aMuteInputForm, aMuteInputBoxClick )
-		addEventHandler ( "onClientGUIAccepted", aMuteInputValue, aMuteInputBoxAccepted )
+		addEventHandler ( "onClientGUIAccepted", aMuteInputValue, aMuteInputBoxFinish )
 		--Register With Admin Form
 		aRegister ( "MuteInputBox", aMuteInputForm, aMuteInputBox, aMuteInputBoxClose )
 	end
@@ -475,7 +463,7 @@ function aMuteInputBox ( player )
 		guiSetText ( aMuteInputRadio2s[i], dur>0 and secondsToTimeDesc(dur) or "Until reconnect" )
 	end
 
-	guiSetText ( aMuteInputForm, "Mute player " .. getPlayerName(player) )
+	guiSetText ( aMuteInputForm, "Mute player " .. removeColorCoding(getPlayerName(player)) )
 	guiSetText ( aMuteInputLabel, "Enter the mute reason" )
 	aHideFloaters()
 	guiSetVisible ( aMuteInputForm, true )
@@ -487,7 +475,7 @@ function aMuteInputBoxClose ( destroy )
 	if ( ( destroy ) or ( guiCheckBoxGetSelected ( aPerformanceInput ) ) ) then
 		if ( aMuteInputForm ) then
 			removeEventHandler ( "onClientGUIClick", aMuteInputForm, aMuteInputBoxClick )
-			removeEventHandler ( "onClientGUIAccepted", aMuteInputValue, aMuteInputBoxAccepted )
+			removeEventHandler ( "onClientGUIAccepted", aMuteInputValue, aMuteInputBoxFinish )
 			aMuteInputPlayer = nil
 			destroyElement ( aMuteInputForm )
 			aMuteInputForm = nil
@@ -495,10 +483,6 @@ function aMuteInputBoxClose ( destroy )
 	else
 		guiSetVisible ( aMuteInputForm, false )
 	end
-end
-
-function aMuteInputBoxAccepted ()
-	aMuteInputBoxFinish()
 end
 
 function aMuteInputBoxClick ( button )

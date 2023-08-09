@@ -40,6 +40,11 @@ if not (g_PlayerData) then
     g_PlayerData = {}
 end
 
+-- Variables for time freeze
+local freezeTimeHour = false
+local freezeTimeMinute = false
+local freezeTimeWeather = false
+
 -- Settings are stored in meta.xml
 function freeroamSettings(settings)
 	if settings then
@@ -97,7 +102,6 @@ function isFunctionOnCD(func, exception)
 end
 
 local function executeCommand(cmd,...)
-
 	local func = commands[cmd]
 	cmd = string.lower(cmd)
 	if not commands[cmd] then return end
@@ -107,18 +111,14 @@ local function executeCommand(cmd,...)
 	end
 	if isFunctionOnCD(func) then return end
 	func(cmd,...)
-
 end
 
 local function addCommandHandler(cmd,func)
-
 	commands[cmd] = func
-	_addCommandHandler(cmd,executeCommand,false)
-
+	_addCommandHandler(cmd,executeCommand,false,false)
 end
 
 local function cancelKnifeEvent(target)
-
 	if knifingDisabled then
 		cancelEvent()
 		errMsg("Knife restrictions are in place")
@@ -127,24 +127,20 @@ local function cancelKnifeEvent(target)
 	if g_PlayerData[localPlayer].knifing or g_PlayerData[target].knifing then
 		cancelEvent()
 	end
-
 end
+addEventHandler("onClientPlayerStealthKill",localPlayer,cancelKnifeEvent)
 
 local function resetKnifing()
-
 	knifeRestrictionsOn = false
-
 end
 
 local function setElementPosition(element,x,y,z)
-
 	if g_settings["weapons/kniferestrictions"] and not knifeRestrictionsOn then
 		knifeRestrictionsOn = true
 		setTimer(resetKnifing,5000,1)
 	end
 
 	_setElementPosition(element,x,y,z)
-
 end
 
 ---------------------------
@@ -196,12 +192,21 @@ wndSkin = {
 }
 
 function setSkinCommand(cmd, skin)
-	skin = skin and tonumber(skin)
+
+	if isPlayerMoving(localPlayer) then
+		errMsg("You can't use /ss while running! Stop moving first!")
+		return
+	end
+
+	skin = skin and math.floor(tonumber(skin))
+
 	if skin then
 		server.setMySkin(skin)
 		fadeCamera(true)
 		closeWindow(wndSpawnMap)
 		closeWindow(wndSetPos)
+	else
+		errMsg("Invalid skin ID! Usage: /ss [id]")
 	end
 end
 addCommandHandler('setskin', setSkinCommand)
@@ -212,9 +217,20 @@ addCommandHandler('ss', setSkinCommand)
 ---------------------------
 
 function applyAnimation(leaf)
-	if type(leaf) ~= 'table' then
-		leaf = getSelectedGridListLeaf(wndAnim, 'animlist')
-		if not leaf then
+	if isPlayerAiming(localPlayer) then
+		errMsg("You cannot perform animations while actively aiming a weapon!")
+		return
+	end
+
+	if isPedReloadingWeapon(localPlayer) then
+		errMsg("You cannot perform animations while reloading a weapon!")
+		return
+	end
+
+	if type(leaf) ~= "table" then
+		leaf = getSelectedGridListLeaf(wndAnim, "animlist")
+		if (not leaf) or (not leaf.parent.name) or (not leaf.name) or (string.len(leaf.name) > 25) or (string.len(leaf.parent.name) > 25) then
+			errMsg("Invalid animation request")
 			return
 		end
 	end
@@ -222,9 +238,11 @@ function applyAnimation(leaf)
 end
 
 function stopAnimation()
-	server.setPedAnimation(localPlayer, false)
+	if getPedAnimation(localPlayer) then
+		server.setPedAnimation(localPlayer, false)
+	end
 end
-addCommandHandler("stopanim", stopAnimation)
+addCommandHandler('stopanim', stopAnimation)
 bindKey("lshift", "down", stopAnimation)
 
 wndAnim = {
@@ -253,18 +271,28 @@ wndAnim = {
 	}
 }
 
-addCommandHandler('anim',
-	function(command, lib, name)
-		if lib and name and (
-			(lib:lower() == "finale" and name:lower() == "fin_jump_on") or
-			(lib:lower() == "finale2" and name:lower() == "fin_cop1_climbout")
-		) then
-			errMsg('This animation may not be set by command.')
-			return
-		end
-		server.setPedAnimation(localPlayer, lib, name, true, true)
+function animCmd(command, lib, name)
+	if not lib or not name then
+		return errMsg("Invalid animation! Rule of thumb: Provide both library and anim name!")
 	end
-)
+
+	if (not tostring(lib)) or not (tostring(name)) or (string.len(lib) > 40) or (string.len(name) > 40) then
+		return errMsg("Invalid animation!")
+	end
+
+	if isPlayerAiming(localPlayer) then errMsg ("You cannot perform animations while actively aiming a weapon!") return end
+	if isPedReloadingWeapon(localPlayer) then errMsg ("You cannot perform animations while reloading a weapon!") return end
+
+	if lib and name and (
+		(lib:lower() == "finale" and name:lower() == "fin_jump_on") or
+		(lib:lower() == "finale2" and name:lower() == "fin_cop1_climbout")
+	) then
+		errMsg('This animation may not be set by command')
+		return
+	end
+	server.setPedAnimation(localPlayer, lib, name, true, true)
+end
+addCommandHandler('anim', animCmd)
 
 ---------------------------
 -- Weapon window
@@ -278,8 +306,16 @@ function addWeapon(leaf, amount)
 			return
 		end
 	end
-	if amount < 1 then
-		errMsg("Invalid amount")
+	if amount < 1 or amount > 999999999 then
+		errMsg("Invalid amount!")
+		return
+	end
+	if isPedReloadingWeapon(localPlayer) then
+		errMsg ("You can't get weapons while reloading a weapon!")
+		return
+	end
+	if isPlayerAiming(localPlayer) then
+		errMsg ("You can't get weapons while aiming a weapon!")
 		return
 	end
 	server.giveMeWeapon(leaf.id, amount)
@@ -287,7 +323,7 @@ end
 
 function isPlayerAiming(p)
 	if isElement(p) then
-		if getPedTask(p, "secondary", 0) == "TASK_SIMPLE_USE_GUN" then
+		if getPedTask(p, "secondary", 0) == "TASK_SIMPLE_USE_GUN" or isPedDoingGangDriveby(p) then
 			return true
 		end
 	end
@@ -319,11 +355,19 @@ wndWeapon = {
 }
 
 function giveWeaponCommand(cmd, weapon, amount)
+
+	if weapon and string.len(weapon) > 25 then errMsg("Invalid weapon name/ID!") return end
+	if amount and string.len(amount) > 9 then errMsg("Invalid amount!") return end
+
 	weapon = tonumber(weapon) and math.floor(tonumber(weapon)) or weapon and getWeaponIDFromName(weapon) or 0
-	amount = amount and math.floor(tonumber(amount)) or 1500
-	if amount < 1 or weapon < 1 or weapon > 46 then return end
+	amount = tonumber(amount) and math.floor(tonumber(amount)) or 2500
+
+	if not weapon then errMsg("Invalid weapon! Syntax: /wp [weapon id/name]") return end
+	if not amount or amount < 1 or amount > 999999999 or weapon < 1 or weapon > 46 then return end
 	if internallyBannedWeapons[weapon] then return end
-	if isPlayerAiming(localPlayer) then errMsg ("You can't use this command while aiming a gun!") return end
+	if isPlayerAiming(localPlayer) then errMsg ("You can't get weapons while aiming a weapon or driveby'ing!") return end
+	if isPedReloadingWeapon(localPlayer) then errMsg ("You can't use this command while reloading a weapon!") return end
+	if weapon == 39 or weapon == 40 then errMsg ("You can't get Satchels with /wp command! Use F1 > weapons instead!") return end
 	server.giveMeWeapon(weapon, amount)
 end
 addCommandHandler('give', giveWeaponCommand)
@@ -333,14 +377,21 @@ addCommandHandler('wp', giveWeaponCommand)
 -- Fighting style
 ---------------------------
 
-addCommandHandler('setstyle',
-	function(cmd, style)
-		style = style and tonumber(style) or 7
-		if allowedStyles[style] then
-			server.setPedFightingStyle(localPlayer, style)
-		end
+function fightingStyle(cmd, style)
+	style = style and tonumber(style) or 5
+
+	if getPedFightingStyle(localPlayer) == style then
+		return
 	end
-)
+
+	if allowedStyles[style] then
+		server.setPedFightingStyle(localPlayer, style)
+	else
+		errMsg("Invalid style ID!")
+		return
+	end
+end
+addCommandHandler("setstyle", fightingStyle)
 
 ---------------------------
 -- Clothes window
@@ -351,31 +402,31 @@ function clothesInit()
 		closeWindow(wndClothes)
 		return
 	end
+
 	if not g_Clothes then
 		triggerServerEvent('onClothesInit', resourceRoot)
 	end
 end
 
-addEvent('onClientClothesInit', true)
-addEventHandler('onClientClothesInit', resourceRoot,
-	function(clothes)
-		g_Clothes = clothes.allClothes
-		for i,typeGroup in ipairs(g_Clothes) do
-			for j,cloth in ipairs(typeGroup.children) do
-				if not cloth.name then
-					cloth.name = cloth.model .. ' - ' .. cloth.texture
-				end
-				cloth.wearing =
-					clothes.playerClothes[typeGroup.type] and
-					clothes.playerClothes[typeGroup.type].texture == cloth.texture and
-					clothes.playerClothes[typeGroup.type].model == cloth.model
-					or false
+function clothesInit_cl(clothes)
+	g_Clothes = clothes.allClothes
+	for i,typeGroup in ipairs(g_Clothes) do
+		for j,cloth in ipairs(typeGroup.children) do
+			if not cloth.name then
+				cloth.name = cloth.model .. ' - ' .. cloth.texture
 			end
-			table.sort(typeGroup.children, function(a, b) return a.name < b.name end)
+			cloth.wearing =
+				clothes.playerClothes[typeGroup.type] and
+				clothes.playerClothes[typeGroup.type].texture == cloth.texture and
+				clothes.playerClothes[typeGroup.type].model == cloth.model
+				or false
 		end
-		bindGridListToTable(wndClothes, 'clothes', g_Clothes, false)
+		table.sort(typeGroup.children, function(a, b) return a.name < b.name end)
 	end
-)
+	bindGridListToTable(wndClothes, 'clothes', g_Clothes, false)
+end
+addEvent('onClientClothesInit', true)
+addEventHandler('onClientClothesInit', resourceRoot, clothesInit_cl)
 
 function clothListClick(cloth)
 	setControlText(wndClothes, 'addremove', cloth.wearing and 'remove' or 'add')
@@ -428,6 +479,7 @@ wndClothes = {
 		},
 		{'br'},
 		{'btn', text='add', id='addremove', width=60, onclick=applyClothes, ClickSpamProtected=true},
+		{'btn', id='outfits', onclick=function() createWindow(wndOutfits) end},
 		{'btn', id='close', closeswindow=true}
 	},
 	oncreate = clothesInit
@@ -435,22 +487,146 @@ wndClothes = {
 
 function addClothesCommand(cmd, type, model, texture)
 	type = type and tonumber(type)
-	if type and model and texture then
-		server.addPedClothes(localPlayer, texture, model, type)
+	if (not type or string.len(type) > 30) or (not model or string.len(model) > 30) or (not texture or string.len(texture) > 30) then
+		errMsg("Invalid clothes input! Usage: /"..cmd.." [type] [model] [texture]")
+		return
 	end
+	server.addPedClothes(localPlayer, texture, model, type)
 end
 addCommandHandler('addclothes', addClothesCommand)
 addCommandHandler('ac', addClothesCommand)
 
 function removeClothesCommand(cmd, type)
 	type = type and tonumber(type)
-	if type then
+	if type and string.len(type) < 30 then
 		server.removePedClothes(localPlayer, type)
 	end
 end
 addCommandHandler('removeclothes', removeClothesCommand)
 addCommandHandler('rc', removeClothesCommand)
 
+---------------------------
+-- Outfits window
+---------------------------
+
+local outfitList
+local outfits
+
+function initOutfits()
+	outfitList = wndOutfits.controls[1].element
+	if outfits then return end
+	loadOutfits()
+	addEventHandler('onClientGUIDoubleClick', outfitList, loadClothes)
+end
+
+function loadOutfits()
+	outfits = {}
+
+	local xml = xmlLoadFile('outfits.xml')
+
+	if not xml then
+		xml = xmlCreateFile('outfits.xml', 'catalog')
+	end
+
+	guiGridListClear(outfitList)
+	for i,child in ipairs (xmlNodeGetChildren(xml) or {}) do
+		local row = guiGridListAddRow(outfitList)
+		guiGridListSetItemText(outfitList, row, 1, tostring(xmlNodeGetAttribute(child, 'name')), false, false)
+		outfits[row+1] = {}
+		for j=0,17 do
+			table.insert(outfits[row+1], j, xmlNodeGetAttribute(child, 'c'..j))
+		end
+	end
+end
+
+function saveOutfits()
+	if fileExists('outfits.xml') then
+		fileDelete('outfits.xml')
+	end
+
+	local xml = xmlCreateFile('outfits.xml', 'catalog')
+
+	for row=0,(guiGridListGetRowCount(outfitList)-1) do
+		local child = xmlCreateChild(xml, 'outfit')
+		xmlNodeSetAttribute(child, 'name', guiGridListGetItemText(outfitList, row, 1))
+		for k,v in pairs (outfits[row+1]) do
+			xmlNodeSetAttribute(child, 'c'..k,v)
+		end
+	end
+	xmlSaveFile(xml)
+	xmlUnloadFile(xml)
+end
+
+function saveOutfit()
+	local name = getControlText(wndOutfits,'outfitname')
+
+	if name ~= "" then
+		local row = guiGridListAddRow(outfitList)
+		outfits[row+1] = {}
+
+		for i=0,17 do
+			local texture,model = getPedClothes (localPlayer, i)
+			if texture and model then
+				table.insert(outfits[row+1], i, texture ..', '.. model)
+			else
+				table.insert(outfits[row+1], i, 'none')
+			end
+		end
+
+		guiGridListSetItemText(outfitList, row, 1, name, false, false)
+		setControlText(wndOutfits, 'outfitname', '')
+		saveOutfits()
+	else
+		outputChatBox('Please enter a name for the outfit')
+	end
+end
+
+function deleteOutfit()
+	local row = guiGridListGetSelectedItem(outfitList)
+	if row and row ~= -1 then
+		table.remove(outfits, row+1)
+		guiGridListRemoveRow(outfitList, row)
+		saveOutfits()
+	end
+end
+
+function loadClothes()
+	local row = guiGridListGetSelectedItem(outfitList)
+	if row and row ~= -1 then
+		for k,v in pairs (outfits[row+1]) do
+			if v ~= 'none' then
+				local clothes = split(v, ', ')
+				server.addPedClothes(localPlayer, clothes[1], clothes[2], k)
+			else
+				server.removePedClothes(localPlayer, k)
+			end
+		end
+	end
+end
+
+wndOutfits = {
+	'wnd',
+	text = 'Outfits',
+	width = 170,
+	x = -400,
+	y = 0.3,
+	controls = {
+		{
+			'lst',
+			id='outfits',
+			width=150,
+			height=250,
+			columns={
+				{text='Name', attr='name', width=0.85},
+			}
+		},
+		{'txt', id='outfitname', text='', width=100},
+		{'btn', id='save', onclick=saveOutfit, width=45},
+		{'btn', id='delete selected', onclick=deleteOutfit, width=100},
+		{'btn', id='close', closeswindow=true, width=45}
+	},
+	oncreate = initOutfits
+}
 ---------------------------
 -- Player gravity window
 ---------------------------
@@ -479,7 +655,7 @@ function applyPlayerGrav()
 end
 
 function setGravityCommand(cmd, grav)
-	local grav = grav and tonumber(grav)
+	grav = grav and tonumber(grav)
 	if grav then
 		playerGravity = grav
 		server.setPedGravity(localPlayer, tonumber(grav))
@@ -543,6 +719,7 @@ local function warpMe(targetPlayer)
 
 	local vehicle = getPedOccupiedVehicle(targetPlayer)
 	local interior = getElementInterior(targetPlayer)
+
 	if not vehicle then
 		-- target player is not in a vehicle - just warp next to him
 		local vec = targetPlayer.position + targetPlayer.matrix.right*2
@@ -592,15 +769,15 @@ function warpUpdate()
 			return players
 		end
 	end
-	
+
 	local text = getControlText(wndWarp, 'search')
-	local players = table.map(getPlayersByPartName(text), 
-		function(p) 
+	local players = table.map(getPlayersByPartName(text),
+		function(p)
 			local pName = getPlayerName(p)
 			if g_settings["hidecolortext"] then
 				pName = pName:gsub("#%x%x%x%x%x%x", "")
 			end
-			return { player = p, name = pName } 
+			return { player = p, name = pName }
 		end)
 	table.sort(players, function(a, b) return a.name < b.name end)
 	bindGridListToTable(wndWarp, 'playerlist', players, true)
@@ -640,7 +817,6 @@ function warpToCommand(cmd, player)
 		showCursor(true)
 	end
 end
-
 addCommandHandler('warpto', warpToCommand)
 addCommandHandler('wt', warpToCommand)
 
@@ -663,13 +839,17 @@ end
 
 function applyStat()
 	local leaf = getSelectedGridListLeaf(wndStats, 'statslist')
+
 	if not leaf then
 		return
 	end
+
 	local value = getControlNumber(wndStats, 'statval')
+
 	if not value then
 		return
 	end
+
 	leaf.value = value
 	server.setPedStat(localPlayer, leaf.id, value)
 end
@@ -718,9 +898,11 @@ end
 function loadBookmarks ()
 	bookmarks = {}
 	local xml = xmlLoadFile("bookmarks.xml")
+
 	if not xml then
 		xml = xmlCreateFile("bookmarks.xml","catalog")
 	end
+
 	guiGridListClear(bookmarkList)
 	for i,child in ipairs (xmlNodeGetChildren(xml) or {}) do
 		local row = guiGridListAddRow(bookmarkList)
@@ -735,6 +917,7 @@ function saveBookmarks ()
 	if fileExists("bookmarks.xml") then
 		fileDelete("bookmarks.xml")
 	end
+
 	local xml = xmlCreateFile("bookmarks.xml","catalog")
 	for row=0,(guiGridListGetRowCount(bookmarkList)-1) do
 		local child = xmlCreateChild(xml,"bookmark")
@@ -753,6 +936,7 @@ function saveLocation ()
 	if name ~= "" then
 		local x,y,z = getElementPosition(localPlayer)
 		local zone = getZoneName(x,y,z,false)
+
 		if x and y and z then
 			local row = guiGridListAddRow(bookmarkList)
 			guiGridListSetItemText(bookmarkList,row,1,name,false,false)
@@ -810,19 +994,13 @@ wndBookmarks = {
 -- Jetpack toggle
 ---------------------------
 function toggleJetPack()
-	if not doesPedHaveJetPack(localPlayer) then
-		server.givePedJetPack(localPlayer)
-		guiCheckBoxSetSelected(getControl(wndMain, 'jetpack'), true)
-	else
-		server.removePedJetPack(localPlayer)
-		guiCheckBoxSetSelected(getControl(wndMain, 'jetpack'), false)
-	end
+	local togJetPack = not isPedWearingJetpack(localPlayer)
+	server.setPedWearingJetpack(localPlayer,togJetPack)
+	guiCheckBoxSetSelected(getControl(wndMain, 'jetpack'), togJetPack)
 end
-
-bindKey('j', 'down', toggleJetPack)
-
 addCommandHandler('jetpack', toggleJetPack)
 addCommandHandler('jp', toggleJetPack)
+bindKey('j', 'down', toggleJetPack)
 
 
 ---------------------------
@@ -843,7 +1021,7 @@ end
 function setPosInit()
 	local x, y, z = getElementPosition(localPlayer)
 	setControlNumbers(wndSetPos, { x = x, y = y, z = z })
-
+	removeEventHandler('onClientRender', root, updatePlayerBlips)
 	addEventHandler('onClientRender', root, updatePlayerBlips)
 end
 
@@ -855,8 +1033,7 @@ function fillInPosition(relX, relY, btn)
 
 	local x = relX*6000 - 3000
 	local y = 3000 - relY*6000
-	local hit, hitX, hitY, hitZ
-	hit, hitX, hitY, hitZ = processLineOfSight(x, y, 3000, x, y, -3000)
+	local _, _, _, hitZ = processLineOfSight(x, y, 3000, x, y, -3000)
 	setControlNumbers(wndSetPos, { x = x, y = y, z = hitZ or 0 })
 end
 
@@ -882,9 +1059,7 @@ function setPosClick()
 end
 
 local function forceFade()
-
 	fadeCamera(false,0)
-
 end
 
 local function calmVehicle(veh)
@@ -900,31 +1075,33 @@ local function calmVehicle(veh)
 
 end
 
-local function retryTeleport(elem,x,y,z,isVehicle,distanceToGround)
-
+local function retryTeleport(elem,x,y,_,isVehicle,distanceToGround)
 	local hit, groundX, groundY, groundZ = processLineOfSight(x, y, 3000, x, y, -3000)
+
 	if hit then
 		local waterZ = getWaterLevel(x, y, 100)
 		z = (waterZ and math.max(groundZ, waterZ) or groundZ) + distanceToGround
 		setElementPosition(elem,x, y, z + distanceToGround)
 		setCameraPlayerMode()
 		setGravity(grav)
+
 		if isVehicle then
 			server.fadeVehiclePassengersCamera(true)
 			setTimer(calmVehicle,100,1,elem)
 		else
 			fadeCamera(true)
 		end
+
 		killTimer(g_TeleportTimer)
 		g_TeleportTimer = nil
 		grav = nil
 	end
-
 end
 
 function setPlayerPosition(x, y, z, skipDeadCheck)
 	local elem = getPedOccupiedVehicle(localPlayer)
 	local isVehicle
+
 	if elem and getPedOccupiedVehicle(localPlayer) then
 		local controller = getVehicleController(elem)
 		if controller and controller ~= localPlayer then
@@ -936,28 +1113,39 @@ function setPlayerPosition(x, y, z, skipDeadCheck)
 		elem = localPlayer
 		isVehicle = false
 	end
+
 	if isPedDead(localPlayer) and not skipDeadCheck then
-		customSpawnTable = {x,y,z}
+		dim = getElementDimension(localPlayer)
+		int = getElementInterior(localPlayer)
+
+		customSpawnTable = {x,y,z,dim,int}
 		fadeCamera(false,0)
 		addEventHandler("onClientPreRender",root,forceFade)
 		outputChatBox("You will be respawned to your specified location",0,255,0)
 		return
 	end
+
 	local distanceToGround = getElementDistanceFromCentreOfMassToBaseOfModel(elem)
 	local hit, hitX, hitY, hitZ = processLineOfSight(x, y, 3000, x, y, -3000)
+
 	if not hit then
 		if isVehicle then
 			server.fadeVehiclePassengersCamera(false)
 		else
 			fadeCamera(false)
 		end
+
 		if isTimer(g_TeleportMatrixTimer) then killTimer(g_TeleportMatrixTimer) end
+
 		g_TeleportMatrixTimer = setTimer(setCameraMatrix, 1000, 1, x, y, z)
+
 		if not grav then
 			grav = playerGravity
 			setGravity(0.001)
 		end
+
 		if isTimer(g_TeleportTimer) then killTimer(g_TeleportTimer) end
+
 		g_TeleportTimer = setTimer(retryTeleport,50,0,elem,x,y,z,isVehicle,distanceToGround)
 	else
 		setElementPosition(elem,x, y, z + distanceToGround)
@@ -970,9 +1158,7 @@ end
 local blipPlayers = {}
 
 local function destroyBlip()
-
 	blipPlayers[source] = nil
-
 end
 
 local function warpToBlip()
@@ -984,23 +1170,27 @@ local function warpToBlip()
 		warpMe(elem)
 		closeWindow(wnd)
 	end
-
 end
 
 function updatePlayerBlips()
 	if not g_PlayerData then
 		return
 	end
+
 	local wnd = isWindowOpen(wndSpawnMap) and wndSpawnMap or wndSetPos
 	local mapControl = getControl(wnd, 'map')
+
 	for elem,player in pairs(g_PlayerData) do
 		if not player.gui.mapBlip then
 			local playerName = player.name
+
 			if g_settings["hidecolortext"] then
 				playerName = playerName:gsub("#%x%x%x%x%x%x", "")
 			end
+
 			player.gui.mapBlip = guiCreateStaticImage(0, 0, 9, 9, elem == localPlayer and 'img/localplayerblip.png' or 'img/playerblip.png', false, mapControl)
 			player.gui.mapLabelShadow = guiCreateLabel(0, 0, 100, 14, playerName, false, mapControl)
+
 			local labelWidth = guiLabelGetTextExtent(player.gui.mapLabelShadow)
 			guiSetSize(player.gui.mapLabelShadow, labelWidth, 14, false)
 			guiSetFont(player.gui.mapLabelShadow, 'default-bold-small')
@@ -1008,6 +1198,7 @@ function updatePlayerBlips()
 			player.gui.mapLabel = guiCreateLabel(0, 0, labelWidth, 14, playerName, false, mapControl)
 			guiSetFont(player.gui.mapLabel, 'default-bold-small')
 			guiLabelSetColor(player.gui.mapLabel, 0, 0, 0)
+
 			for i,name in ipairs({'mapBlip', 'mapLabelShadow'}) do
 				blipPlayers[player.gui[name]] = elem
 				addEventHandler('onClientGUIDoubleClick', player.gui[name],warpToBlip,false)
@@ -1032,6 +1223,7 @@ function updateName(oldNick, newNick)
 	local source = getElementType(source) == "player" and source or oldNick
 	local player = g_PlayerData[source]
 	player.name = newNick
+
 	if player.gui.mapLabel then
 		guiSetText(player.gui.mapLabelShadow, newNick)
 		guiSetText(player.gui.mapLabel, newNick)
@@ -1040,8 +1232,7 @@ function updateName(oldNick, newNick)
 		guiSetSize(player.gui.mapLabel, labelWidth, 14, false)
 	end
 end
-
-addEventHandler('onClientPlayerChangeNick', root,updateName)
+addEventHandler('onClientPlayerChangeNick',root,updateName)
 
 function closePositionWindow()
 	removeEventHandler('onClientRender', root, updatePlayerBlips)
@@ -1069,10 +1260,17 @@ function getPosCommand(cmd, playerName)
 
 	if playerName then
 		player = getPlayerFromName(playerName)
+
 		if not player then
 			errMsg('There is no player named "' .. playerName .. '".')
 			return
 		end
+
+		if g_PlayerData[player].warping then
+			errMsg("You cannot get coordinates of a player that has disabled warping!")
+			return
+		end
+
 		playerName = getPlayerName(player)		-- make sure case is correct
 		sentenceStart = playerName .. ' is '
 	else
@@ -1093,18 +1291,22 @@ addCommandHandler('getpos', getPosCommand)
 addCommandHandler('gp', getPosCommand)
 
 function setPosCommand(cmd, x, y, z, r)
+	if isPlayerAiming(localPlayer) then return errMsg ("You can't use /sp while aiming a weapon!") end
+	if isPedReloadingWeapon(localPlayer) then return errMsg ("You can't use /sp while reloading a weapon!") end
+
 	local vehicle = getPedOccupiedVehicle(localPlayer)
 	if vehicle then
 		local vehModel = getElementModel(vehicle)
 
-		if table.find(g_settings["vehicles/disallowed_warp"], vehModel) then
+		if table.find(g_settings["vehicles/disallowed_warp"], vehModel) and not isPedDead(localPlayer) then
 			errMsg("You cannot use /sp while in this vehicle!")
 			return
 		end
 	end
 
 	-- Handle setpos if used like: x, y, z, r or x,y,z,r
-	local x, y, z, r = string.gsub(x or "", ",", " "), string.gsub(y or "", ",", " "), string.gsub(z or "", ",", " "), string.gsub(r or "", ",", " ")
+	x, y, z, r = string.gsub(x or "", ",", " "), string.gsub(y or "", ",", " "), string.gsub(z or "", ",", " "), string.gsub(r or "", ",", " ")
+
 	-- Extra handling for x,y,z,r
 	if (x and y == "" and not tonumber(x)) then
 		x, y, z, r = unpack(split(x, " "))
@@ -1115,24 +1317,27 @@ function setPosCommand(cmd, x, y, z, r)
 
 	-- If somebody doesn't provide all XYZ explain that we will use their current X Y or Z.
 	local message = ""
+
 	message = message .. (tonumber(x) and "" or "X ")
 	message = message .. (tonumber(y) and "" or "Y ")
 	message = message .. (tonumber(z) and "" or "Z ")
+
 	if (message ~= "") then
 		outputChatBox(message.."arguments were not provided. Using your current "..message.."values instead.", 255, 255, 0)
 	end
 
 	setPlayerPosition(tonumber(x) or px, tonumber(y) or py, tonumber(z) or pz)
+
 	if (isPedInVehicle(localPlayer)) then
-		local vehicle = getPedOccupiedVehicle(localPlayer)
-		if (vehicle and isElement(vehicle) and getVehicleController(vehicle) == localPlayer) then
-			setElementRotation(vehicle, 0, 0, tonumber(r) or pr)
+		local vehicle2 = getPedOccupiedVehicle(localPlayer)
+
+		if (vehicle2 and isElement(vehicle2) and getVehicleController(vehicle2) == localPlayer) then
+			setElementRotation(vehicle2, 0, 0, tonumber(r) or pr)
 		end
 	else
 		setPedRotation(localPlayer, tonumber(r) or pr)
 	end
 end
-
 addCommandHandler('setpos', setPosCommand)
 addCommandHandler('sp', setPosCommand)
 
@@ -1269,12 +1474,27 @@ wndCreateVehicle = {
 }
 
 function createVehicleCommand(cmd, ...)
+
 	local args = {...}
-	vehID = getVehicleModelFromName(table.concat(args," ")) or tonumber(args[1]) and math.floor(tonumber(args[1])) or false
+
+	if not ... then
+		return errMsg("Enter vehicle model please! Syntax: /cv [vehicle ID/name]")
+	end
+
+	vehID = getVehicleModelFromName(table.concat(args, " ")) or tonumber(args[1]) and math.floor(tonumber(args[1])) or false
+
+	if not vehID or not tostring(vehID) or not tonumber(vehID) then
+		return errMsg("Invalid vehicle model!")
+	end
+
+	if string.len(table.concat(args, " ")) > 25 or tonumber(vehID) and string.len(vehID) > 3 then
+		return errMsg("Invalid vehicle model!")
+	end
+
 	if vehID and vehID >= 400 and vehID <= 611 then
 		server.giveMeVehicles(vehID)
 	else
-		errMsg("Invalid vehicle model")
+		errMsg("Invalid vehicle model!")
 	end
 end
 addCommandHandler('createvehicle', createVehicleCommand)
@@ -1285,11 +1505,11 @@ addCommandHandler('cv', createVehicleCommand)
 ---------------------------
 function repairVehicle()
 	local vehicle = getPedOccupiedVehicle(localPlayer)
+
 	if vehicle then
 		server.fixVehicle(vehicle)
 	end
 end
-
 addCommandHandler('repair', repairVehicle)
 addCommandHandler('rp', repairVehicle)
 
@@ -1298,12 +1518,12 @@ addCommandHandler('rp', repairVehicle)
 ---------------------------
 function flipVehicle()
 	local vehicle = getPedOccupiedVehicle(localPlayer)
+
 	if vehicle then
 		local rX, rY, rZ = getElementRotation(vehicle)
 		setElementRotation(vehicle, 0, 0, (rX > 90 and rX < 270) and (rZ + 180) or rZ)
 	end
 end
-
 addCommandHandler('flip', flipVehicle)
 addCommandHandler('f', flipVehicle)
 
@@ -1312,14 +1532,17 @@ addCommandHandler('f', flipVehicle)
 ---------------------------
 function upgradesInit()
 	local vehicle = getPedOccupiedVehicle(localPlayer)
+
 	if not vehicle then
 		errMsg('Please enter a vehicle to change the upgrades of.')
 		closeWindow(wndUpgrades)
 		return
 	end
+
 	local installedUpgrades = getVehicleUpgrades(vehicle)
 	local compatibleUpgrades = {}
 	local slotName, group
+
 	for i,upgrade in ipairs(getVehicleCompatibleUpgrades(vehicle)) do
 		slotName = getVehicleUpgradeSlotName(upgrade)
 		group = table.find(compatibleUpgrades, 'name', slotName)
@@ -1398,6 +1621,7 @@ wndUpgrades = {
 
 function addUpgradeCommand(cmd, upgrade)
 	local vehicle = getPedOccupiedVehicle(localPlayer)
+
 	if vehicle and upgrade then
 		server.addVehicleUpgrade(vehicle, tonumber(upgrade) or 0)
 	end
@@ -1407,6 +1631,7 @@ addCommandHandler('au', addUpgradeCommand)
 
 function removeUpgradeCommand(cmd, upgrade)
 	local vehicle = getPedOccupiedVehicle(localPlayer)
+
 	if vehicle and upgrade then
 		server.removeVehicleUpgrade(vehicle, tonumber(upgrade) or 0)
 	end
@@ -1419,9 +1644,11 @@ addCommandHandler('ru', removeUpgradeCommand)
 ---------------------------
 function forceLightsOn()
 	local vehicle = getPedOccupiedVehicle(localPlayer)
+
 	if not vehicle then
 		return
 	end
+
 	if guiCheckBoxGetSelected(getControl(wndMain, 'lightson')) then
 		server.setVehicleOverrideLights(vehicle, 2)
 		guiCheckBoxSetSelected(getControl(wndMain, 'lightsoff'), false)
@@ -1432,9 +1659,11 @@ end
 
 function forceLightsOff()
 	local vehicle = getPedOccupiedVehicle(localPlayer)
+
 	if not vehicle then
 		return
 	end
+
 	if guiCheckBoxGetSelected(getControl(wndMain, 'lightsoff')) then
 		server.setVehicleOverrideLights(vehicle, 1)
 		guiCheckBoxSetSelected(getControl(wndMain, 'lightson'), false)
@@ -1450,13 +1679,22 @@ end
 
 function setColorCommand(cmd, ...)
 	local vehicle = getPedOccupiedVehicle(localPlayer)
+
 	if not vehicle then
 		return
 	end
-	local colors = { getVehicleColor(vehicle) }
-	local args = { ... }
-	for i=1,12 do
-		colors[i] = args[i] and tonumber(args[i]) or colors[i]
+
+	local colors = {getVehicleColor(vehicle)}
+	local args = {...}
+
+	if not ... then
+		errMsg("Enter colors please!")
+		return
+	end
+
+	for i = 1, 12 do
+		local color = tonumber(args[i]) or -1
+		colors[i] = color >= 0 and color or colors[i]
 	end
 	server.setVehicleColor(vehicle, unpack(colors))
 end
@@ -1465,6 +1703,7 @@ addCommandHandler('cl', setColorCommand)
 
 function openColorPicker()
 	editingVehicle = getPedOccupiedVehicle(localPlayer)
+
 	if (editingVehicle) then
 		local r1, g1, b1, r2, g2, b2, r3, g3, b3, r4, g4, b4 = getVehicleColor(editingVehicle, true)
 		local r, g, b = 255, 255, 255
@@ -1483,12 +1722,14 @@ function openColorPicker()
 		if (guiCheckBoxGetSelected(checkColor5)) then
 			r, g, b = getVehicleHeadLightColor(editingVehicle)
 		end
+
 		colorPicker.setValue({r, g, b})
 		colorPicker.openSelect(colors)
 	end
 end
 
 function closedColorPicker()
+	if not editingVehicle then return end
 	local r1, g1, b1, r2, g2, b2, r3, g3, b3, r4, g4, b4 = getVehicleColor(editingVehicle, true)
 	server.setVehicleColor(editingVehicle, r1, g1, b1, r2, g2, b2, r3, g3, b3, r4, g4, b4)
 	local r, g, b = getVehicleHeadLightColor(editingVehicle)
@@ -1527,11 +1768,13 @@ addEventHandler("onClientRender", root, updateColor)
 
 function paintjobInit()
 	local vehicle = getPedOccupiedVehicle(localPlayer)
+
 	if not vehicle then
 		errMsg('You need to be in a car to change its paintjob.')
 		closeWindow(wndPaintjob)
 		return
 	end
+
 	local paint = getVehiclePaintjob(vehicle)
 	if paint then
 		guiGridListSetSelectedItem(getControl(wndPaintjob, 'paintjoblist'), paint+1, 1)
@@ -1539,7 +1782,11 @@ function paintjobInit()
 end
 
 function applyPaintjob(paint)
-	server.setVehiclePaintjob(getPedOccupiedVehicle(localPlayer), paint.id)
+	local vehicle = getPedOccupiedVehicle(localPlayer)
+
+	if vehicle and tonumber(paint.id) and string.len(paint.id) == 1 then
+		server.setVehiclePaintjob(vehicle, paint.id)
+	end
 end
 
 wndPaintjob = {
@@ -1574,10 +1821,17 @@ wndPaintjob = {
 
 function setPaintjobCommand(cmd, paint)
 	local vehicle = getPedOccupiedVehicle(localPlayer)
+	if not vehicle then return end
+
 	paint = paint and tonumber(paint)
-	if not paint or not vehicle then
+
+	if not paint then errMsg("Enter paintjob ID please!") return end
+
+	if paint > 3 or string.len(paint) > 1 then
+		errMsg("Invalid paintjob ID!")
 		return
 	end
+
 	server.setVehiclePaintjob(vehicle, paint)
 end
 addCommandHandler('paintjob', setPaintjobCommand)
@@ -1599,6 +1853,7 @@ function applyTime()
 	local hours, minutes = getControlNumbers(wndTime, { 'hours', 'minutes' })
 	setTime(hours, minutes)
 	closeWindow(wndTime)
+	freezeTimeHour, freezeTimeMinute = hours, minutes
 end
 
 wndTime = {
@@ -1636,13 +1891,14 @@ wndTime = {
 }
 
 function setTimeCommand(cmd, hours, minutes)
-	if not hours then
-		return
-	end
 	local curHours, curMinutes = getTime()
-	hours = tonumber(hours) or curHours
+
+	hours = hours and tonumber(hours) or curHours
 	minutes = minutes and tonumber(minutes) or curMinutes
-	setTime(hours, minutes)
+
+	if math.floor(hours) and math.floor(minutes) then
+		setTime(hours, minutes)
+	end
 end
 addCommandHandler('settime', setTimeCommand)
 addCommandHandler('st', setTimeCommand)
@@ -1650,14 +1906,17 @@ addCommandHandler('st', setTimeCommand)
 function toggleFreezeTime()
 	local state = guiCheckBoxGetSelected(getControl(wndMain, 'freezetime'))
 	guiCheckBoxSetSelected(getControl(wndMain, 'freezetime'), not state)
+	freezeTimeHour, freezeTimeMinute = getTime()
+	freezeTimeWeather = getWeather()
 	setTimeFrozen(state)
 end
 
-function setTimeFrozen(state, h, m, w)
+function setTimeFrozen(state)
 	guiCheckBoxSetSelected(getControl(wndMain, 'freezetime'), state)
+
 	if state then
 		if not g_TimeFreezeTimer then
-			g_TimeFreezeTimer = setTimer(function() setTime(h, m) setWeather(w) end, 5000, 0)
+			g_TimeFreezeTimer = setTimer(function() setTime(freezeTimeHour, freezeTimeMinute) setWeather(freezeTimeWeather) end, 5000, 0)
 			setMinuteDuration(9001)
 		end
 	else
@@ -1681,6 +1940,7 @@ function applyWeather(leaf)
 	end
 	setWeather(leaf.id)
 	closeWindow(wndWeather)
+	freezeTimeWeather = leaf.id
 end
 
 wndWeather = {
@@ -1705,7 +1965,13 @@ wndWeather = {
 }
 
 function setWeatherCommand(cmd, weather)
-	weather = weather and tonumber(weather)
+	weather = weather and math.floor(tonumber(weather))
+
+	if not weather or weather > 255 or string.len(weather) > 3 then
+		errMsg("Invalid weather ID!")
+		return
+	end
+
 	if weather then
 		setWeather(weather)
 	end
@@ -1745,7 +2011,7 @@ end
 
 function applyGameSpeed()
 	speed = getControlNumber(wndGameSpeed, 'speed')
-	if speed then
+	if speed and tonumber(speed) then
 		setMyGameSpeed(speed)
 	end
 	closeWindow(wndGameSpeed)
@@ -1781,60 +2047,54 @@ wndGameSpeed = {
 }
 
 function setGameSpeedCommand(cmd, speed)
-	speed = speed and tonumber(speed)
-	if speed then
-		setMyGameSpeed(speed)
-	end
-end
+    speed = speed and tonumber(speed)
 
-addCommandHandler('setgamespeed', setGameSpeedCommand)
-addCommandHandler('speed', setGameSpeedCommand)
+    if speed then
+        setMyGameSpeed(speed)
+    else
+        errMsg("Invalid speed value! Example: /speed 0.7")
+    end
+end
+addCommandHandler("setgamespeed", setGameSpeedCommand)
+addCommandHandler("speed", setGameSpeedCommand)
 
 ---------------------------
 -- Main window
 ---------------------------
 
 function toggleWarping()
-
 	local state = guiCheckBoxGetSelected( getControl(wndMain, 'disablewarp') )
 	triggerServerEvent("onFreeroamLocalSettingChange",localPlayer,"warping",state)
 	outputChatBox("You "..(state and "disabled" or "enabled").." others warping to you",255,255,0)
-
 end
 
 function toggleKnifing()
-
 	local state = guiCheckBoxGetSelected( getControl(wndMain, 'disableknife') )
 	triggerServerEvent("onFreeroamLocalSettingChange",localPlayer,"knifing",state)
 	outputChatBox("You "..(state and "disabled" or "enabled").." knifekills",255,255,0)
-
 end
 
 function toggleGhostmode()
-
 	local state = guiCheckBoxGetSelected( getControl(wndMain, 'antiram') )
 	triggerServerEvent("onFreeroamLocalSettingChange",localPlayer,"ghostmode",state)
 	outputChatBox("You "..(state and "disabled" or "enabled").." other players ramming your vehicle",255,255,0)
-
-
 end
 
-function updateGUI(updateVehicle)
+function updateGUI()
 	-- update position
 	local x, y, z = getElementPosition(localPlayer)
 	setControlNumbers(wndMain, {xpos=math.ceil(x), ypos=math.ceil(y), zpos=math.ceil(z)})
 
 	-- update jetpack toggle
-	guiCheckBoxSetSelected( getControl(wndMain, 'jetpack'), doesPedHaveJetPack(localPlayer) )
+	guiCheckBoxSetSelected( getControl(wndMain, 'jetpack'), isPedWearingJetpack(localPlayer) )
 
-	if updateVehicle then
-		-- update current vehicle
-		local vehicle = getPedOccupiedVehicle(localPlayer)
-		if vehicle and isElement(vehicle) then
-			setControlText(wndMain, 'curvehicle', getVehicleName(vehicle))
-		else
-			setControlText(wndMain, 'curvehicle', 'On foot')
-		end
+	-- update current vehicle
+	local vehicle = getPedOccupiedVehicle(localPlayer)
+
+	if vehicle and isElement(vehicle) then
+		setControlText(wndMain, "curvehicle", getVehicleName(vehicle))
+	else
+		setControlText(wndMain, "curvehicle", "On foot")
 	end
 end
 
@@ -1842,6 +2102,7 @@ function mainWndShow()
 	if not getPedOccupiedVehicle(localPlayer) then
 		hideControls(wndMain, 'repair', 'flip', 'upgrades', 'color', 'paintjob', 'lightson', 'lightsoff')
 	end
+
 	updateTimer = updateTimer or setTimer(updateGUI, 2000, 0)
 	updateGUI(true)
 end
@@ -1871,10 +2132,12 @@ function onEnterVehicle(vehicle,seat)
 		guiCheckBoxSetSelected(getControl(wndMain, 'lightson'), getVehicleOverrideLights(vehicle) == 2)
 		guiCheckBoxSetSelected(getControl(wndMain, 'lightsoff'), getVehicleOverrideLights(vehicle) == 1)
 	end
+
 	if seat == 0 and g_PlayerData[source] then
 		setVehicleGhost(vehicle,hasDriverGhost(vehicle))
 	end
 end
+addEventHandler('onClientPlayerVehicleEnter', root, onEnterVehicle)
 
 function onExitVehicle(vehicle,seat)
 	if (eventName == "onClientPlayerVehicleExit" and source == localPlayer) or (eventName == "onClientElementDestroy" and getElementType(source) == "vehicle" and getPedOccupiedVehicle(localPlayer) == source) then
@@ -1888,19 +2151,26 @@ function onExitVehicle(vehicle,seat)
 		end
 	end
 end
+addEventHandler('onClientPlayerVehicleExit', root, onExitVehicle)
+addEventHandler("onClientElementDestroy", root, onExitVehicle)
 
 function killLocalPlayer()
 	if g_settings["kill"] then
-		setElementHealth(localPlayer,0)
+		if (not isPedDead(localPlayer)) then
+			triggerServerEvent("onFreeroamSuicide", localPlayer)
+		end
 	else
 		errMsg("Killing yourself is disallowed!")
 	end
 end
 
 function alphaCommand(command, alpha)
-	alpha = alpha and tonumber(alpha) or 255
+	alpha = alpha and math.floor(tonumber(alpha)) or 255
+
 	if alpha >= 0 and alpha <= 255 then
 		server.setElementAlpha(localPlayer, alpha)
+	else
+		errMsg("Invalid alpha value! (range: 0 - 255)")
 	end
 end
 addCommandHandler('alpha', alphaCommand)
@@ -1989,12 +2259,13 @@ addEventHandler('onClientResourceStart', resourceRoot,
 	function()
 		fadeCamera(true)
 		getPlayers()
-		setJetpackMaxHeight ( 9001 )
+		setJetpackMaxHeight(9001)
+		setAircraftMaxHeight(1600)
 		triggerServerEvent('onLoadedAtClient', resourceRoot)
 		createWindow(wndMain)
 		hideAllWindows()
 		bindKey('f1', 'down', toggleFRWindow)
-		guiCheckBoxSetSelected(getControl(wndMain, 'jetpack'), doesPedHaveJetPack(localPlayer))
+		guiCheckBoxSetSelected(getControl(wndMain, 'jetpack'), isPedWearingJetpack(localPlayer))
 		guiCheckBoxSetSelected(getControl(wndMain, 'falloff'), canPedBeKnockedOffBike(localPlayer))
 	end
 )
@@ -2034,17 +2305,22 @@ function joinHandler(player)
 	if (not g_PlayerData) then return end
 	g_PlayerData[player or source] = { name = getPlayerName(player or source), gui = {} }
 end
+addEventHandler('onClientPlayerJoin', root, joinHandler)
 
 function quitHandler()
 	if (not g_PlayerData) then return end
+
 	local veh = getPedOccupiedVehicle(source)
 	local seat = (veh and getVehicleController(veh) == localPlayer) and 0 or 1
+
 	if seat == 0 then
 		onExitVehicle(veh,0)
 	end
+
 	table.each(g_PlayerData[source].gui, destroyElement)
 	g_PlayerData[source] = nil
 end
+addEventHandler('onClientPlayerQuit', root, quitHandler)
 
 function wastedHandler()
 	if source == localPlayer then
@@ -2060,6 +2336,7 @@ function wastedHandler()
 		end
 	end
 end
+addEventHandler('onClientPlayerWasted', root, wastedHandler)
 
 local function removeForcedFade()
 	removeEventHandler("onClientPreRender",root,forceFade)
@@ -2067,22 +2344,15 @@ local function removeForcedFade()
 end
 
 local function checkCustomSpawn()
-
 	if type(customSpawnTable) == "table" then
-		local x,y,z = unpack(customSpawnTable)
+		local x,y,z,dim,int = unpack(customSpawnTable)
 		setPlayerPosition(x,y,z,true)
+		setElementDimension(localPlayer, dim)
+		setElementInterior(localPlayer, int)
 		customSpawnTable = false
 		setTimer(removeForcedFade,100,1)
 	end
-
 end
-
-addEventHandler('onClientPlayerJoin', root, joinHandler)
-addEventHandler('onClientPlayerQuit', root, quitHandler)
-addEventHandler('onClientPlayerWasted', root, wastedHandler)
-addEventHandler('onClientPlayerVehicleEnter', root, onEnterVehicle)
-addEventHandler('onClientPlayerVehicleExit', root, onExitVehicle)
-addEventHandler("onClientElementDestroy", root, onExitVehicle)
 addEventHandler("onClientPlayerSpawn", localPlayer, checkCustomSpawn)
 
 function getPlayerName(player)
@@ -2099,12 +2369,15 @@ addEventHandler('onClientResourceStop', resourceRoot,
 function setVehicleGhost(sourceVehicle,value)
 
 	  local vehicles = getElementsByType("vehicle")
+
 	  for _,vehicle in ipairs(vehicles) do
 		local vehicleGhost = hasDriverGhost(vehicle)
+
 		if isElement(sourceVehicle) and isElement(vehicle) then
 		   setElementCollidableWith(sourceVehicle,vehicle,not value)
 		   setElementCollidableWith(vehicle,sourceVehicle,not value)
 		end
+
 		if value == false and vehicleGhost == true and isElement(sourceVehicle) and isElement(vehicle) then
 			setElementCollidableWith(sourceVehicle,vehicle,not vehicleGhost)
 			setElementCollidableWith(vehicle,sourceVehicle,not vehicleGhost)
@@ -2114,11 +2387,10 @@ function setVehicleGhost(sourceVehicle,value)
 end
 
 local function onStreamIn()
-
 	if source.type ~= "vehicle" then return end
 	setVehicleGhost(source,hasDriverGhost(source))
-
 end
+addEventHandler("onClientElementStreamIn",root,onStreamIn)
 
 local function onLocalSettingChange(key,value)
 
@@ -2126,19 +2398,23 @@ local function onLocalSettingChange(key,value)
 
 	if key == "ghostmode" then
 		local sourceVehicle = getPedOccupiedVehicle(source)
+
 		if sourceVehicle then
 			setVehicleGhost(sourceVehicle,hasDriverGhost(sourceVehicle))
 		end
 	end
-
 end
+addEvent("onClientFreeroamLocalSettingChange",true)
+addEventHandler("onClientFreeroamLocalSettingChange",root,onLocalSettingChange)
 
 local function renderKnifingTag()
 	if not g_PlayerData then return end
+
 	for _,p in ipairs (getElementsByType ("player", root, true)) do
 		if g_PlayerData[p] and g_PlayerData[p].knifing then
-			local px,py,pz = getElementPosition(p)
-			local x,y,d = getScreenFromWorldPosition (px, py, pz+1.3)
+			local px,py,pz = getPedBonePosition(p, 6)
+			local x,y,d = getScreenFromWorldPosition (px, py, pz+0.5)
+
 			if x and y and d < 20 then
 				dxDrawText ("Disabled Knifing", x+1, y+1, x, y, tocolor (0, 0, 0), 0.5, "bankgothic", "center")
 				dxDrawText ("Disabled Knifing", x, y, x, y, tocolor (220, 220, 0), 0.5, "bankgothic", "center")
@@ -2146,10 +2422,4 @@ local function renderKnifingTag()
 		end
     end
 end
-
 addEventHandler ("onClientRender", root, renderKnifingTag)
-
-addEvent("onClientFreeroamLocalSettingChange",true)
-addEventHandler("onClientFreeroamLocalSettingChange",root,onLocalSettingChange)
-addEventHandler("onClientPlayerStealthKill",localPlayer,cancelKnifeEvent)
-addEventHandler("onClientElementStreamIn",root,onStreamIn)

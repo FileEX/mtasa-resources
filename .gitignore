@@ -5,9 +5,18 @@
 
 \[test\]
 
+# admin
+\[admin\]/admin/conf/reports.xml
+\[admin\]/ip2c/conf/IpToCountryCompact.csv
+
 # admin2
 \[admin\]/admin2/admin.db
 \[admin\]/admin2/conf/reports.xml
 
 # acpanel
 \[admin\]/acpanel/settings.xml
+
+# editor
+editor_dump/
+editor_test/
+editor_map_backups/

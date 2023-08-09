@@ -4,7 +4,7 @@
 aFunctions = {
     team = {
         ["createteam"] = function(name, r, g, b)
-            local success = false
+            local success
             if (tonumber(r)) and (tonumber(g)) and (tonumber(b)) then
                 success = createTeam(name, tonumber(r), tonumber(g), tonumber(b))
             else
@@ -38,16 +38,38 @@ aFunctions = {
             setPlayerMuted(player, false)
         end,
         ["freeze"] = function(player)
+            local vehicle = getPedOccupiedVehicle(player)
+
+            if (vehicle and getVehicleController(vehicle) == player) then
+                setElementFrozen(vehicle, true)
+            end
+
+            toggleAllControls(player, false, true, false)
             setElementFrozen(player, true)
         end,
         ["unfreeze"] = function(player)
+            local vehicle = getPedOccupiedVehicle(player)
+
+            if (vehicle and getVehicleController(vehicle) == player) then
+                setElementFrozen(vehicle, false)
+            end
+
+            toggleAllControls(player, true, true, false)
             setElementFrozen(player, false)
+        end,
+        ["setnick"] = function(player, nick)
+            if (#nick > 0) then
+                local oldnick = getPlayerName(player)
+                return setPlayerName(player, nick), oldnick
+            else
+                return false
+            end
         end,
         ["shout"] = function(player, text)
             local textDisplay = textCreateDisplay()
             local textItem =
                 textCreateTextItem(
-                "(ADMIN)" .. getPlayerName(source) .. ":\n\n" .. text,
+                "(ADMIN)" .. stripColorCodes(getPlayerName(source)) .. ":\n\n" .. text,
                 0.5,
                 0.5,
                 2,
@@ -64,21 +86,21 @@ aFunctions = {
             setTimer(textDestroyTextItem, 5000, 1, textItem)
             setTimer(textDestroyDisplay, 5000, 1, textDisplay)
         end,
-        ["sethealth"] = function(player, health)
-            local health = tonumber(health)
+        ["sethealth"] = function(player, health1)
+            local health = tonumber(health1)
             if (health) then
-                if (health > 200 or health <= 0) then
+                if (health > 200 or health < 0) then
                     health = 100
                 end
                 return setElementHealth(player, health), health
             else
-                action = false
+                return false
             end
         end,
-        ["setarmour"] = function(player, armour)
-            local armour = tonumber(armour)
+        ["setarmour"] = function(player, armour1)
+            local armour = tonumber(armour1)
             if (armour) then
-                if (armour > 200 or armour <= 0) then
+                if (armour > 200 or armour < 0) then
                     armour = 100
                 end
                 return setPedArmor(player, armour), armour
@@ -86,8 +108,8 @@ aFunctions = {
                 return false
             end
         end,
-        ["setskin"] = function(player, skin)
-            local skin = tonumber(skin)
+        ["setskin"] = function(player, skin1)
+            local skin = tonumber(skin1)
             if (not skin) then
                 return false
             end
@@ -139,8 +161,8 @@ aFunctions = {
             end
             return false
         end,
-        ["setdimension"] = function(player, dimension)
-            local dimension = tonumber(dimension)
+        ["setdimension"] = function(player, dimension1)
+            local dimension = tonumber(dimension1)
             if (dimension) then
                 if (dimension > 65535) or (dimension < 0) then
                     dimension = 0
@@ -151,8 +173,8 @@ aFunctions = {
             end
         end,
         ["jetpack"] = function(player)
-            if (doesPedHaveJetPack(player)) then
-                removePedJetPack(player)
+            if (isPedWearingJetpack(player)) then
+                setPedWearingJetpack(player, false)
                 return true, "jetpackr"
             else
                 if (getPedOccupiedVehicle(player)) then
@@ -164,39 +186,27 @@ aFunctions = {
                         0
                     )
                 else
-                    if (givePedJetPack(player)) then
+                    if (setPedWearingJetpack(player, true)) then
                         return true, "jetpacka"
                     end
                 end
             end
         end,
-        ["setgroup"] = function(player, data)
-            -- NEEDS CHECKING
+        ["setgroup"] = function(player, data, groupName)
             local account = getPlayerAccount(player)
             if (not isGuestAccount(account)) then
-                local group = aclGetGroup(data)
+                local group = aclGetGroup(groupName)
                 if (group) then
                     if (data == true) then
                         aclGroupAddObject(group, "user." .. getAccountName(account))
-                        return true, "admina"
+                        triggerEvent(EVENT_SYNC, source, SYNC_PLAYERACL, player)
+                        return "admina", groupName
                     elseif (data == false) then
                         aclGroupRemoveObject(group, "user." .. getAccountName(account))
                         aPlayers[player]["chat"] = false
-                        return true, "adminr"
+                        triggerEvent(EVENT_SYNC, source, SYNC_PLAYERACL, player)
+                        return "adminr", groupName
                     end
-                    for id, p in ipairs(getElementsByType("player")) do
-                        if (hasObjectPermissionTo(p, "general.adminpanel")) then
-                            triggerEvent("aSync", p, "admins")
-                        end
-                    end
-                else
-                    outputChatBox(
-                        "Error - Admin group not initialized. Please reinstall admin resource.",
-                        source,
-                        255,
-                        0,
-                        0
-                    )
                 end
             else
                 outputChatBox("Error - Player is not logged in.", source, 255, 100, 100)
@@ -205,12 +215,11 @@ aFunctions = {
         ["givevehicle"] = function(player, id)
             local pvehicle = getPedOccupiedVehicle(player)
             local vx, vy, vz = getElementVelocity(player)
-            local vehicle = nil
+            local vehicle
             if (pvehicle) then
                 local passengers = getVehicleOccupants(pvehicle)
                 local x, y, z = getElementPosition(pvehicle)
                 local rx, ry, rz = getVehicleRotation(pvehicle)
-                local vx, vy, vz = getElementVelocity(pvehicle)
                 destroyElement(pvehicle)
                 vehicle = createVehicle(id, x, y, z, rx, ry, rz)
                 local seats = getVehicleMaxPassengers(vehicle)
@@ -259,12 +268,12 @@ aFunctions = {
         ["getscreen"] = function(player, quality)
             getPlayerScreen(player, source, quality)
         end,
-        ["wrap"] = function(player)
+        ["warp"] = function(player)
             warpPlayer(source, player)
         end,
-        ["wrapto"] = function(player, data)
+        ["warpto"] = function(player, data)
             warpPlayer(player, data)
-            return true, getPlayerName(data)
+            return true, type(data) == "table" and getZoneName(unpack(data)) or getPlayerName(data)
         end
     },
     vehicle = {
@@ -277,8 +286,7 @@ aFunctions = {
                 setElementPosition(vehicle, x, y, z + 2)
             end
         end,
-        ["customize"] = function(player, vehicle, ...)
-            local data = {...}
+        ["customize"] = function(player, vehicle, data)
             if (data[1] == "remove") then
                 for id, upgrade in ipairs(getVehicleUpgrades(vehicle)) do
                     removeVehicleUpgrade(vehicle, upgrade)
@@ -304,8 +312,7 @@ aFunctions = {
             end
             return true, id
         end,
-        ["setcolor"] = function(player, vehicle, ...)
-            local data = {...}
+        ["setcolor"] = function(player, vehicle, data)
             for k, color in ipairs(data) do
                 local c = tonumber(color)
                 if (c) then
@@ -398,9 +405,9 @@ aFunctions = {
             end
             return true, id .. " " .. getWeatherNameFromID(tonumber(id))
         end,
-        ["blendweather"] = function()
+        ["blendweather"] = function(id)
             if (not setWeatherBlended(tonumber(id))) then
-                outputChatBox("Error setting weather.", source, 255, 0, 0)
+                outputChatBox("Error blending weather.", source, 255, 0, 0)
                 return false
             end
             return true, id .. " " .. getWeatherNameFromID(tonumber(id))
@@ -467,8 +474,12 @@ aFunctions = {
                 return false
             end
         end,
-        ["shutdown"] = function(reason)
-            shutdown(iif(reason, tostring(reason), nil))
+        ["shutdown"] = function()
+            shutdown("triggered by "..getPlayerName(source))
+        end,
+        ["clearchat"] = function()
+            clearChatBox()
+            return true
         end
     },
     admin = {},

@@ -47,79 +47,78 @@ function aServerTab.Create(tab)
     aServerTab.SetGameType = guiCreateButton(0.42, 0.150, 0.18, 0.04, "Set Game Type", true, tab, "setgame")
     aServerTab.SetMapName = guiCreateButton(0.42, 0.195, 0.18, 0.04, "Set Map Name", true, tab, "setmap")
     aServerTab.Shutdown = guiCreateButton(0.42, 0.240, 0.18, 0.04, "Shutdown", true, tab, "shutdown")
-    guiCreateHeader(0.02, 0.285, 0.30, 0.035, "Server properties:", true, tab)
+    aServerTab.ClearChat = guiCreateButton(0.42, 0.285, 0.18, 0.04, "Clear Chat", true, tab, "clearchat")
+    guiCreateHeader(0.02, 0.305, 0.30, 0.035, "Server properties:", true, tab)
     aServerTab.WeatherCurrent =
         guiCreateLabel(
         0.03,
-        0.330,
+        0.350,
         0.45,
         0.035,
         "Current Weather: " .. getWeather() .. " (" .. getWeatherNameFromID(getWeather()) .. ")",
         true,
         tab
     )
-    --aServerTab.WeatherDec     = guiCreateButton ( 0.05, 0.40, 0.035, 0.04, "<", true, tab )
-    aServerTab.Weather = guiCreateEdit(0.35, 0.330, 0.25, 0.04, "0", true, tab)
-    --aServerTab.WeatherInc     = guiCreateButton ( 0.45, 0.40, 0.035, 0.04, ">", true, tab )
-    --guiEditSetReadOnly(aServerTab.Weather, true)
-    aServerTab.WeatherSet = guiCreateButton(0.50, 0.375, 0.10, 0.04, "Set", true, tab, "setweather")
-    aServerTab.WeatherBlend = guiCreateButton(0.35, 0.375, 0.135, 0.04, "Blend", true, tab, "blendweather")
+    aServerTab.Weather = guiCreateComboBox(0.35, 0.3425, 0.25, 0.50, "Weather", true, tab)
+    aServerTab.WeatherSet = guiCreateButton(0.50, 0.395, 0.10, 0.04, "Set", true, tab, "setweather")
+    aServerTab.WeatherBlend = guiCreateButton(0.35, 0.395, 0.135, 0.04, "Blend", true, tab, "blendweather")
 
     local th, tm = getTime()
-    aServerTab.TimeCurrent = guiCreateLabel(0.03, 0.420, 0.25, 0.035, "Time: " .. th .. ":" .. tm, true, tab)
-    aServerTab.TimeH = guiCreateEdit(0.35, 0.420, 0.055, 0.04, "12", true, tab)
-    aServerTab.TimeM = guiCreateEdit(0.425, 0.420, 0.055, 0.04, "00", true, tab)
-    guiCreateLabel(0.415, 0.420, 0.05, 0.04, ":", true, tab)
+    aServerTab.TimeCurrent = guiCreateLabel(0.03, 0.440, 0.25, 0.035, "Time: " .. th .. ":" .. tm, true, tab)
+    aServerTab.TimeH = guiCreateEdit(0.35, 0.440, 0.055, 0.04, "12", true, tab)
+    aServerTab.TimeM = guiCreateEdit(0.425, 0.440, 0.055, 0.04, "00", true, tab)
+    guiCreateLabel(0.415, 0.440, 0.05, 0.04, ":", true, tab)
     guiEditSetMaxLength(aServerTab.TimeH, 2)
     guiEditSetMaxLength(aServerTab.TimeM, 2)
-    aServerTab.TimeSet = guiCreateButton(0.50, 0.420, 0.10, 0.04, "Set", true, tab, "settime")
+    aServerTab.TimeSet = guiCreateButton(0.50, 0.440, 0.10, 0.04, "Set", true, tab, "settime")
 
     aServerTab.GravityCurrent =
-        guiCreateLabel(0.03, 0.465, 0.28, 0.035, "Gravitation: " .. string.format("%.3f", getGravity()), true, tab)
-    aServerTab.Gravity = guiCreateEdit(0.35, 0.465, 0.135, 0.04, "0.008", true, tab)
-    aServerTab.GravitySet = guiCreateButton(0.50, 0.465, 0.10, 0.04, "Set", true, tab, "setgravity")
+        guiCreateLabel(0.03, 0.485, 0.28, 0.035, "Gravitation: " .. string.format("%.3f", getGravity()), true, tab)
+    aServerTab.Gravity = guiCreateEdit(0.35, 0.485, 0.135, 0.04, "0.008", true, tab)
+    aServerTab.GravitySet = guiCreateButton(0.50, 0.485, 0.10, 0.04, "Set", true, tab, "setgravity")
 
-    aServerTab.SpeedCurrent = guiCreateLabel(0.03, 0.510, 0.30, 0.035, "Game Speed: " .. getGameSpeed(), true, tab)
-    aServerTab.Speed = guiCreateEdit(0.35, 0.510, 0.135, 0.04, "1", true, tab)
-    aServerTab.SpeedSet = guiCreateButton(0.50, 0.510, 0.10, 0.04, "Set", true, tab, "setgamespeed")
+    aServerTab.SpeedCurrent = guiCreateLabel(0.03, 0.530, 0.30, 0.035, "Game Speed: " .. getGameSpeed(), true, tab)
+    aServerTab.Speed = guiCreateEdit(0.35, 0.530, 0.135, 0.04, "1", true, tab)
+    aServerTab.SpeedSet = guiCreateButton(0.50, 0.530, 0.10, 0.04, "Set", true, tab, "setgamespeed")
 
-    aServerTab.BlurCurrent = guiCreateLabel(0.03, 0.555, 0.25, 0.035, "Blur Level: 36", true, tab)
-    aServerTab.Blur = guiCreateEdit(0.35, 0.555, 0.135, 0.04, "36", true, tab)
-    aServerTab.BlurSet = guiCreateButton(0.50, 0.555, 0.10, 0.04, "Set", true, tab, "setblurlevel")
+    aServerTab.BlurCurrent = guiCreateLabel(0.03, 0.575, 0.25, 0.035, "Blur Level: 36", true, tab)
+    aServerTab.Blur = guiCreateEdit(0.35, 0.575, 0.135, 0.04, "36", true, tab)
+    aServerTab.BlurSet = guiCreateButton(0.50, 0.575, 0.10, 0.04, "Set", true, tab, "setblurlevel")
 
     aServerTab.HeatHazeCurrent =
-        guiCreateLabel(0.03, 0.600, 0.25, 0.035, "Heat Haze Level: " .. getHeatHaze(), true, tab)
-    aServerTab.HeatHaze = guiCreateEdit(0.35, 0.600, 0.135, 0.04, "80", true, tab)
-    aServerTab.HeatHazeSet = guiCreateButton(0.50, 0.600, 0.10, 0.04, "Set", true, tab, "setheathazelevel")
+        guiCreateLabel(0.03, 0.620, 0.25, 0.035, "Heat Haze Level: " .. getHeatHaze(), true, tab)
+    aServerTab.HeatHaze = guiCreateEdit(0.35, 0.620, 0.135, 0.04, "80", true, tab)
+    aServerTab.HeatHazeSet = guiCreateButton(0.50, 0.620, 0.10, 0.04, "Set", true, tab, "setheathazelevel")
     guiSetEnabled(aServerTab.HeatHazeSet, true)
 
-    aServerTab.WavesCurrent = guiCreateLabel(0.03, 0.645, 0.25, 0.035, "Wave Height: " .. getWaveHeight(), true, tab)
-    aServerTab.Waves = guiCreateEdit(0.35, 0.645, 0.135, 0.04, "0", true, tab)
-    aServerTab.WavesSet = guiCreateButton(0.50, 0.645, 0.10, 0.04, "Set", true, tab, "setwaveheight")
+    aServerTab.WavesCurrent = guiCreateLabel(0.03, 0.665, 0.25, 0.035, "Wave Height: " .. getWaveHeight(), true, tab)
+    aServerTab.Waves = guiCreateEdit(0.35, 0.665, 0.135, 0.04, "0", true, tab)
+    aServerTab.WavesSet = guiCreateButton(0.50, 0.665, 0.10, 0.04, "Set", true, tab, "setwaveheight")
 
-    aServerTab.FPSCurrent = guiCreateLabel(0.03, 0.690, 0.25, 0.035, "FPS Limit: 36", true, tab)
-    aServerTab.FPS = guiCreateEdit(0.35, 0.690, 0.135, 0.04, "36", true, tab)
-    aServerTab.FPSSet = guiCreateButton(0.50, 0.690, 0.10, 0.04, "Set", true, tab, "setfpslimit")
+    local fpsLimit = getFPSLimit()
+    aServerTab.FPSCurrent = guiCreateLabel(0.03, 0.710, 0.25, 0.035, "FPS Limit: "..fpsLimit, true, tab)
+    aServerTab.FPS = guiCreateEdit(0.35, 0.710, 0.135, 0.04, fpsLimit, true, tab)
+    aServerTab.FPSSet = guiCreateButton(0.50, 0.710, 0.10, 0.04, "Set", true, tab, "setfpslimit")
 
-    guiCreateHeader(0.02, 0.735, 0.30, 0.035, "Automatic scripts:", true, tab)
+    guiCreateHeader(0.02, 0.755, 0.30, 0.035, "Automatic scripts:", true, tab)
     aServerTab.PingKickerCheck =
-        guiCreateCheckBox(0.03, 0.780, 0.30, 0.04, "Ping Kicker", false, true, tab, "setpingkicker")
-    aServerTab.PingKicker = guiCreateEdit(0.35, 0.780, 0.135, 0.04, "300", true, tab)
-    aServerTab.PingKickerSet = guiCreateButton(0.50, 0.780, 0.10, 0.04, "Set", true, tab, "setpingkicker")
+        guiCreateCheckBox(0.03, 0.800, 0.30, 0.04, "Ping Kicker", false, true, tab, "setpingkicker")
+    aServerTab.PingKicker = guiCreateEdit(0.35, 0.800, 0.135, 0.04, "300", true, tab)
+    aServerTab.PingKickerSet = guiCreateButton(0.50, 0.800, 0.10, 0.04, "Set", true, tab, "setpingkicker")
     guiSetEnabled(aServerTab.PingKicker, false)
     guiSetEnabled(aServerTab.PingKickerSet, false)
 
     aServerTab.FPSKickerCheck =
-        guiCreateCheckBox(0.03, 0.825, 0.30, 0.04, "FPS Kicker", false, true, tab, "setfpskicker")
-    aServerTab.FPSKicker = guiCreateEdit(0.35, 0.825, 0.135, 0.04, "5", true, tab)
-    aServerTab.FPSKickerSet = guiCreateButton(0.50, 0.825, 0.10, 0.04, "Set", true, tab, "setfpskicker")
+        guiCreateCheckBox(0.03, 0.845, 0.30, 0.04, "FPS Kicker", false, true, tab, "setfpskicker")
+    aServerTab.FPSKicker = guiCreateEdit(0.35, 0.845, 0.135, 0.04, "5", true, tab)
+    aServerTab.FPSKickerSet = guiCreateButton(0.50, 0.845, 0.10, 0.04, "Set", true, tab, "setfpskicker")
     guiSetEnabled(aServerTab.FPSKicker, false)
     guiSetEnabled(aServerTab.FPSKickerSet, false)
 
     aServerTab.IdleKickerCheck =
-        guiCreateCheckBox(0.03, 0.870, 0.30, 0.04, "Idle Kicker", false, true, tab, "setidlekicker")
-    aServerTab.IdleKicker = guiCreateEdit(0.35, 0.870, 0.135, 0.04, "10", true, tab)
-    aServerTab.IdleKickerSet = guiCreateButton(0.50, 0.870, 0.10, 0.04, "Set", true, tab, "setidlekicker")
+        guiCreateCheckBox(0.03, 0.890, 0.30, 0.04, "Idle Kicker", false, true, tab, "setidlekicker")
+    aServerTab.IdleKicker = guiCreateEdit(0.35, 0.890, 0.135, 0.04, "10", true, tab)
+    aServerTab.IdleKickerSet = guiCreateButton(0.50, 0.890, 0.10, 0.04, "Set", true, tab, "setidlekicker")
     guiSetEnabled(aServerTab.IdleKicker, false)
     guiSetEnabled(aServerTab.IdleKickerSet, false)
 
@@ -137,10 +136,8 @@ function aServerTab.Create(tab)
     for k,v in pairs(aServerTab.worldproperties) do
         aServerTab[k] = guiCreateCheckBox(0.66, headerPosition + (0.045 * i2), 0.40, 0.04, v, false, true, tab, 'setworldproperty')
         guiSetEnabled(aServerTab[k], true)
-        i2 = i2 + 1 
+        i2 = i2 + 1
     end
-
-    i,i2 = nil,nil
 
     addEventHandler("onClientGUIClick", aServerTab.Tab, aServerTab.onClientClick)
     addEventHandler('onClientGUIChanged', aServerTab.Tab, aServerTab.onClientChanged)
@@ -162,6 +159,10 @@ function aServerTab.Create(tab)
         end
     end
 
+    for i3 = 0,19 do
+        guiComboBoxAddItem(aServerTab.Weather, i3 .. " (" .. getWeatherNameFromID(i3) .. ")")
+    end
+
     sync(SYNC_SERVER)
 
     aServerTab.onRefresh()
@@ -172,124 +173,112 @@ function aServerTab.onClientClick(button)
         if (source == aServerTab.SetGameType) then
             local gametype = inputBox("Game Type", "Enter game type:")
             if (gametype) then
-                triggerServerEvent("aServer", getLocalPlayer(), "setgame", gametype)
+                triggerServerEvent("aServer", localPlayer, "setgame", gametype)
             end
         elseif (source == aServerTab.SetMapName) then
             local mapname = inputBox("Map Name", "Enter map name:")
             if (mapname) then
-                triggerServerEvent("aServer", getLocalPlayer(), "setmap", mapname)
+                triggerServerEvent("aServer", localPlayer, "setmap", mapname)
             end
         elseif (source == aServerTab.SetPassword) then
             local password = inputBox("Server password", "Enter server password: (32 characters max)")
             if (password and password:len() > 0) then
-                triggerServerEvent("aServer", getLocalPlayer(), "setpassword", password)
+                triggerServerEvent("aServer", localPlayer, "setpassword", password)
             end
         elseif (source == aServerTab.ResetPassword) then
             if (messageBox("Reset password?", MB_QUESTION, MB_YESNO)) then
-                triggerServerEvent("aServer", getLocalPlayer(), "setpassword", "")
+                triggerServerEvent("aServer", localPlayer, "setpassword", "")
             end
         elseif (source == aServerTab.Shutdown) then
-            local reason = inputBox("Shutdown", "Enter shut down reason:")
-            if (reason) then
-                triggerServerEvent("aServer", getLocalPlayer(), "shutdown", reason)
+            if (messageBox("Are you sure you want to shutdown the server?", MB_QUESTION, MB_YESNO )) then
+                triggerServerEvent("aServer", localPlayer, "shutdown")
             end
-       --[[ elseif ((source == aServerTab.WeatherInc) or (source == aServerTab.WeatherDec)) then
-            local id = tonumber(gettok(guiGetText(aServerTab.Weather), 1, 32))
-            if (id) then
-                if ((source == aServerTab.WeatherInc) and (id < aServerTab.WeatherMax)) then
-                    guiSetText(aServerTab.Weather, (id + 1) .. " (" .. getWeatherNameFromID(id + 1) .. ")")
-                elseif ((source == aServerTab.WeatherDec) and (id > 0)) then
-                    guiSetText(aServerTab.Weather, (id - 1) .. " (" .. getWeatherNameFromID(id - 1) .. ")")
-                end
-            else
-                guiSetText(aServerTab.Weather, (14) .. " (" .. getWeatherNameFromID(14) .. ")")
-            end]]
+        elseif (source == aServerTab.ClearChat) then
+            triggerServerEvent("aServer", localPlayer, "clearchat", "")
         elseif (source == aServerTab.WeatherSet) then
-            local weather = guiGetText(aServerTab.Weather)
-            if tonumber(weather) then
-                triggerServerEvent("aServer", getLocalPlayer(), "setweather", gettok(weather, 1, 32))
-            elseif #weather == 0 then
-                triggerServerEvent("aServer", getLocalPlayer(), "setweather", 0)
-                guiSetText(aServerTab.Weather, 0)
+            local weather = guiComboBoxGetSelected(aServerTab.Weather)
+            if weather ~= -1 then
+                triggerServerEvent("aServer", localPlayer, "setweather", gettok(guiComboBoxGetItemText(aServerTab.Weather, weather), 1, 32))
+            else
+                triggerServerEvent("aServer", localPlayer, "setweather", 0)
             end
         elseif (source == aServerTab.WeatherBlend) then
-            triggerServerEvent(
-                "aServer",
-                getLocalPlayer(),
-                "blendweather",
-                gettok(guiGetText(aServerTab.Weather), 1, 32)
-            )
+            local weather = guiComboBoxGetSelected(aServerTab.Weather)
+            if weather ~= -1 then
+                triggerServerEvent("aServer", localPlayer, "blendweather", gettok(guiComboBoxGetItemText(aServerTab.Weather, weather), 1, 32))
+            else
+                triggerServerEvent("aServer", localPlayer, "blendweather", 0)
+            end
         elseif (source == aServerTab.TimeSet) then
             triggerServerEvent(
                 "aServer",
-                getLocalPlayer(),
+                localPlayer,
                 "settime",
                 guiGetText(aServerTab.TimeH),
                 guiGetText(aServerTab.TimeM)
             )
-       --[[ elseif ((source == aServerTab.SpeedInc) or (source == aServerTab.SpeedDec)) then
-            local value = tonumber(guiGetText(aServerTab.Speed))
-            if (value) then
-                if ((source == aServerTab.SpeedInc) and (value < 10)) then
-                    guiSetText(aServerTab.Speed, tostring(value + 1))
-                elseif ((source == aServerTab.SpeedDec) and (value > 0)) then
-                    guiSetText(aServerTab.Speed, tostring(value - 1))
-                end
-            else
-                guiSetText(aServerTab.Speed, "1")
-            end]]
         elseif (source == aServerTab.SpeedSet) then
             local speed = guiGetText(aServerTab.Speed)
             if tonumber(speed) then
-                triggerServerEvent("aServer", getLocalPlayer(), "setgamespeed", speed)
+                triggerServerEvent("aServer", localPlayer, "setgamespeed", speed)
             elseif #speed == 0 then
-                triggerServerEvent("aServer", getLocalPlayer(), "setgamespeed", 1)
+                triggerServerEvent("aServer", localPlayer, "setgamespeed", 1)
                 guiSetText(aServerTab.Speed, 1)
             end
         elseif (source == aServerTab.GravitySet) then
             local gravity = guiGetText(aServerTab.Gravity)
             if tonumber(gravity) then
-                triggerServerEvent("aServer", getLocalPlayer(), "setgravity", gravity)
+                triggerServerEvent("aServer", localPlayer, "setgravity", gravity)
             elseif #gravity == 0 then
-                triggerServerEvent("aServer", getLocalPlayer(), "setgravity", 0.008)
+                triggerServerEvent("aServer", localPlayer, "setgravity", 0.008)
                 guiSetText(aServerTab.Gravity, 0.008)
             end
         elseif (source == aServerTab.WavesSet) then
             local waves = guiGetText(aServerTab.Waves)
             if tonumber(waves) then
-                triggerServerEvent("aServer", getLocalPlayer(), "setwaveheight", waves)
+                triggerServerEvent("aServer", localPlayer, "setwaveheight", waves)
             elseif #waves == 0 then
-                triggerServerEvent("aServer", getLocalPlayer(), "setwaveheight", 0)
+                triggerServerEvent("aServer", localPlayer, "setwaveheight", 0)
                 guiSetText(aServerTab.Waves, 0)
             end
         elseif (source == aServerTab.BlurSet) then
             local blur = guiGetText(aServerTab.Blur)
             if tonumber(blur) then
-                triggerServerEvent("aServer", getLocalPlayer(), "setblurlevel", blur)
+                triggerServerEvent("aServer", localPlayer, "setblurlevel", blur)
             elseif #blur == 0 then
-                triggerServerEvent("aServer", getLocalPlayer(), "setblurlevel", 36)
+                triggerServerEvent("aServer", localPlayer, "setblurlevel", 36)
                 guiSetText(aServerTab.Blur, 36)
             end
         elseif (source == aServerTab.HeatHazeSet) then
             local heathaze = guiGetText(aServerTab.HeatHaze)
             if tonumber(heathaze) then
-                triggerServerEvent("aServer", getLocalPlayer(), "setheathazelevel", heathaze)
+                triggerServerEvent("aServer", localPlayer, "setheathazelevel", heathaze)
             elseif #heathaze == 0 then
-                triggerServerEvent("aServer", getLocalPlayer(), "setheathazelevel", 80)
+                triggerServerEvent("aServer", localPlayer, "setheathazelevel", 80)
                 guiSetText(aServerTab.HeatHaze, 80)
             end
         elseif (source == aServerTab.FPSSet) then
             local fps = guiGetText(aServerTab.FPS)
-            if tonumber(fps) then
-                triggerServerEvent("aServer", getLocalPlayer(), "setfpslimit", fps)
-            elseif #fps == 0 then
-                triggerServerEvent("aServer", getLocalPlayer(), "setfpslimit", 36) -- 36 is default
-                guiSetText(aServerTab.FPS, 36)
+            fps = fps and tonumber(fps) or 0
+            if fps >= 25 and fps <= 32767 then
+                -- Warn user of fps-related physics bugs when fps > 74, per notes at https://wiki.multitheftauto.com/wiki/SetFPSLimit
+                if fps > 74 then
+                    if not messageBox("74 FPS is the breaking point that opens the door to various severe GTA bugs related to physics, and setting a higher limit than this is not recommended. Are you sure you want to proceed?", MB_WARNING, MB_YESNO) then
+                        guiSetText(aServerTab.FPS, getFPSLimit())
+                        return
+                    end
+                end
+                triggerServerEvent("aServer", localPlayer, "setfpslimit", fps)
+            elseif fps == 0 then
+                triggerServerEvent("aServer", localPlayer, "setfpslimit", 74) -- 74 is default
+                guiSetText(aServerTab.FPS, 74)
+            else
+                messageBox("Invalid FPS limit: range is 25 - 32767, or 0 for default.", MB_ERROR, MB_OK)
             end
         elseif (source == aServerTab.QuickReload) then
             triggerServerEvent(
                 "aServer",
-                getLocalPlayer(),
+                localPlayer,
                 "setglitch",
                 "quickreload",
                 iif(guiCheckBoxGetSelected(aServerTab.QuickReload), "on", "off")
@@ -297,7 +286,7 @@ function aServerTab.onClientClick(button)
         elseif (source == aServerTab.FastMove) then
             triggerServerEvent(
                 "aServer",
-                getLocalPlayer(),
+                localPlayer,
                 "setglitch",
                 "fastmove",
                 iif(guiCheckBoxGetSelected(aServerTab.FastMove), "on", "off")
@@ -305,7 +294,7 @@ function aServerTab.onClientClick(button)
         elseif (source == aServerTab.FastFire) then
             triggerServerEvent(
                 "aServer",
-                getLocalPlayer(),
+                localPlayer,
                 "setglitch",
                 "fastfire",
                 iif(guiCheckBoxGetSelected(aServerTab.FastFire), "on", "off")
@@ -313,7 +302,7 @@ function aServerTab.onClientClick(button)
         elseif (source == aServerTab.CrouchBug) then
             triggerServerEvent(
                 "aServer",
-                getLocalPlayer(),
+                localPlayer,
                 "setglitch",
                 "crouchbug",
                 iif(guiCheckBoxGetSelected(aServerTab.CrouchBug), "on", "off")
@@ -321,7 +310,7 @@ function aServerTab.onClientClick(button)
         elseif (source == aServerTab.HighCloseRangeDamage) then
             triggerServerEvent(
                 "aServer",
-                getLocalPlayer(),
+                localPlayer,
                 "setglitch",
                 "highcloserangedamage",
                 iif(guiCheckBoxGetSelected(aServerTab.HighCloseRangeDamage), "on", "off")
@@ -329,7 +318,7 @@ function aServerTab.onClientClick(button)
         elseif (source == aServerTab.HitAnim) then
             triggerServerEvent(
                 "aServer",
-                getLocalPlayer(),
+                localPlayer,
                 "setglitch",
                 "hitanim",
                 iif(guiCheckBoxGetSelected(aServerTab.HitAnim), "on", "off")
@@ -337,7 +326,7 @@ function aServerTab.onClientClick(button)
         elseif (source == aServerTab.FastSprint) then
             triggerServerEvent(
                 "aServer",
-                getLocalPlayer(),
+                localPlayer,
                 "setglitch",
                 "fastsprint",
                 iif(guiCheckBoxGetSelected(aServerTab.FastSprint), "on", "off")
@@ -345,7 +334,7 @@ function aServerTab.onClientClick(button)
         elseif (source == aServerTab.BadDrivebyHitBox) then
             triggerServerEvent(
                 "aServer",
-                getLocalPlayer(),
+                localPlayer,
                 "setglitch",
                 "baddrivebyhitbox",
                 iif(guiCheckBoxGetSelected(aServerTab.BadDrivebyHitBox), "on", "off")
@@ -353,7 +342,7 @@ function aServerTab.onClientClick(button)
         elseif (source == aServerTab.QuickStand) then
             triggerServerEvent(
                 "aServer",
-                getLocalPlayer(),
+                localPlayer,
                 "setglitch",
                 "quickstand",
                 iif(guiCheckBoxGetSelected(aServerTab.QuickStand), "on", "off")
@@ -361,7 +350,7 @@ function aServerTab.onClientClick(button)
         elseif (source == aServerTab.HoverCars) then
             triggerServerEvent(
                 "aServer",
-                getLocalPlayer(),
+                localPlayer,
                 "setworldproperty",
                 "hovercars",
                 iif(guiCheckBoxGetSelected(aServerTab.HoverCars), "on", "off")
@@ -369,7 +358,7 @@ function aServerTab.onClientClick(button)
         elseif (source == aServerTab.AirCars) then
             triggerServerEvent(
                 "aServer",
-                getLocalPlayer(),
+                localPlayer,
                 "setworldproperty",
                 "aircars",
                 iif(guiCheckBoxGetSelected(aServerTab.AirCars), "on", "off")
@@ -377,7 +366,7 @@ function aServerTab.onClientClick(button)
         elseif (source == aServerTab.ExtraBunny) then
             triggerServerEvent(
                 "aServer",
-                getLocalPlayer(),
+                localPlayer,
                 "setworldproperty",
                 "extrabunny",
                 iif(guiCheckBoxGetSelected(aServerTab.ExtraBunny), "on", "off")
@@ -385,7 +374,7 @@ function aServerTab.onClientClick(button)
         elseif (source == aServerTab.ExtraJump) then
             triggerServerEvent(
                 "aServer",
-                getLocalPlayer(),
+                localPlayer,
                 "setworldproperty",
                 "extrajump",
                 iif(guiCheckBoxGetSelected(aServerTab.ExtraJump), "on", "off")
@@ -393,7 +382,7 @@ function aServerTab.onClientClick(button)
         elseif (source == aServerTab.RandomFoliage) then
             triggerServerEvent(
                 "aServer",
-                getLocalPlayer(),
+                localPlayer,
                 "setworldproperty",
                 "randomfoliage",
                 iif(guiCheckBoxGetSelected(aServerTab.RandomFoliage), "on", "off")
@@ -401,7 +390,7 @@ function aServerTab.onClientClick(button)
         elseif (source == aServerTab.SniperMoon) then
             triggerServerEvent(
                 "aServer",
-                getLocalPlayer(),
+                localPlayer,
                 "setworldproperty",
                 "snipermoon",
                 iif(guiCheckBoxGetSelected(aServerTab.SniperMoon), "on", "off")
@@ -409,7 +398,7 @@ function aServerTab.onClientClick(button)
         elseif (source == aServerTab.ExtraAirResistance) then
             triggerServerEvent(
                 "aServer",
-                getLocalPlayer(),
+                localPlayer,
                 "setworldproperty",
                 "extraairresistance",
                 iif(guiCheckBoxGetSelected(aServerTab.ExtraAirResistance), "on", "off")
@@ -417,7 +406,7 @@ function aServerTab.onClientClick(button)
         elseif (source == aServerTab.UnderWorldWarp) then
             triggerServerEvent(
                 "aServer",
-                getLocalPlayer(),
+                localPlayer,
                 "setworldproperty",
                 "underworldwarp",
                 iif(guiCheckBoxGetSelected(aServerTab.UnderWorldWarp), "on", "off")
@@ -438,9 +427,10 @@ function aServerTab.onClientSync(type, table)
     if (type == SYNC_SERVER) then
         guiSetText(aServerTab.Server, "Server: " .. table["name"])
         guiSetText(aServerTab.Players, "Players: " .. #getElementsByType("player") .. "/" .. table["players"])
-        guiSetText(aServerTab.Password, "Password: " .. (table["password"] or "None"))
+        guiSetText(aServerTab.Password, "Password: " .. getSensitiveText(table["password"] or "None"))
         guiSetText(aServerTab.GameType, "Game Type: " .. (table["game"] or "None"))
         guiSetText(aServerTab.MapName, "Map Name: " .. (table["map"] or "None"))
+        aServerTab['currentPassword'] = table['password'] or nil
     end
 end
 

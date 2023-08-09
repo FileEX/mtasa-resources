@@ -42,6 +42,21 @@ addEventHandler(
                 tableOut[player].country = aPlayers[player]["country"]
                 tableOut[player].countryname = aPlayers[player]["countryname"]
             end
+        elseif (type == SYNC_PLAYERACL) then
+            local player = data
+            if isElement(player) then
+                theSource = player
+                local ignoredGroups = {
+                    ['Everyone'] = true,
+                    ['autoGroup_irc'] = true,
+                }
+                for _, v in ipairs(aclGroupList()) do
+                    local groupName = aclGroupGetName(v)
+                    if (not ignoredGroups[groupName]) then
+                        tableOut[groupName] = isObjectInACLGroup('user.'..getAccountName(getPlayerAccount(player)), v)
+                    end
+                end
+            end
         elseif (type == SYNC_RESOURCES) then
             tableOut = {}
             local resourceTable = getResources()
@@ -119,12 +134,12 @@ addEvent("onPlayerFrozen", false)
 addEvent("onPlayerMoneyChange", false)
 addEventHandler(
     "onResourceStart",
-    getResourceRootElement(getThisResource()),
+    resourceRoot,
     function()
         setTimer(
             function()
                 for player, data in pairs(aPlayers) do
-                    local prev = false
+                    local prev
 
                     local money = getPlayerMoney(player)
                     prev = data.money or 0
